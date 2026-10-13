@@ -51,58 +51,72 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Subscription not found.' }, { status: 404 });
   }
 
-  const provider = new ToyyibPayProvider({
-    mode: process.env.TOYYIBPAY_MODE === 'live' ? 'live' : 'sandbox',
-    secret: process.env.TOYYIBPAY_SECRET_KEY ?? 'sandbox-toyyibpay-secret',
-    categoryCode: process.env.TOYYIBPAY_CATEGORY_CODE ?? 'sandbox-category',
-    baseUrl: process.env.TOYYIBPAY_BASE_URL ?? 'https://toyyibpay.com',
-  });
+  const paymentSecret = process.env.TOYYIBPAY_SECRET_KEY;
+  const paymentCategoryCode = process.env.TOYYIBPAY_CATEGORY_CODE;
+  const paymentBaseUrl = process.env.TOYYIBPAY_BASE_URL;
 
-  const checkout = provider.createCheckoutSession({
-    businessId,
-    subscriptionId: subscriptionRow.id,
-    amount: '29.00',
-    currency: 'MYR',
-    customerEmail: user.email ?? undefined,
-    customerName: String(user.user_metadata?.full_name ?? user.email ?? 'Customer'),
-    reference: String(payload.reference ?? `opsfinance-${subscriptionRow.id}`),
-    metadata: {
-      business_id: businessId,
-      subscription_id: subscriptionRow.id,
-      callback_url: process.env.TOYYIBPAY_CALLBACK_URL ?? `${process.env.NEXT_PUBLIC_APP_URL ?? 'https://app.myops.com.my'}/api/payments/webhook`,
-    },
-  });
-
-  const { error: insertError } = await supabase.from('subscription_payments').insert({
-    business_id: businessId,
-    subscription_id: subscriptionRow.id,
-    provider: 'TOYYIBPAY',
-    provider_payment_id: checkout.checkoutId,
-    provider_reference: checkout.providerReference,
-    checkout_session_id: checkout.checkoutId,
-    amount: 29.00,
-    currency: 'MYR',
-    status: 'INITIATED',
-    metadata: {
-      mode: provider.mode,
-      checkout_url: checkout.sessionUrl,
-      provider_reference: checkout.providerReference,
-    },
-  });
-
-  if (insertError) {
-    return NextResponse.json({ error: insertError.message }, { status: 400 });
+  if (!paymentSecret || !paymentCategoryCode || !paymentBaseUrl) {
+    return NextResponse.json({ error: 'Payment provider configuration is missing.' }, { status: 503 });
   }
 
-  return NextResponse.json({
-    provider: checkout.provider,
-    mode: checkout.mode,
-    checkoutSession: {
-      id: checkout.checkoutId,
-      url: checkout.sessionUrl,
-      reference: checkout.providerReference,
-      amount: checkout.amount,
-      currency: checkout.currency,
-    },
+  const provider = new ToyyibPayProvider({
+    mode: process.env.TOYYIBPAY_MODE === 'live' ? 'live' : 'sandbox',
+    secret: paymentSecret,
+    categoryCode: paymentCategoryCode,
+    baseUrl: paymentBaseUrl,
   });
+
+  try {
+    const callbackUrl = process.env.TOYYIBPAY_CALLBACK_URL ?? (process.env.NEXT_PUBLIC_APP_URL ? `${process.env.NEXT_PUBLIC_APP_URL}/api/payments/webhook` : undefined);
+    const checkout = provider.createCheckoutSession({
+      businessId,
+      subscriptionId: subscriptionRow.id,
+      amount: '29.00',
+      currency: 'MYR',
+      customerEmail: user.email ?? undefined,
+      customerName: String(user.user_metadata?.full_name ?? user.email ?? 'Customer'),
+      reference: String(payload.reference ?? `opsfinance-${subscriptionRow.id}`),
+      metadata: {
+        business_id: businessId,
+        subscription_id: subscriptionRow.id,
+        ...(callbackUrl ? { callback_url: callbackUrl } : {}),
+      },
+    });
+
+    const { error: insertError } = await supabase.from('subscription_payments').insert({
+      business_id: businessId,
+      subscription_id: subscriptionRow.id,
+      provider: 'TOYYIBPAY',
+      provider_payment_id: checkout.checkoutId,
+      provider_reference: checkout.providerReference,
+      checkout_session_id: checkout.checkoutId,
+      amount: 29.00,
+      currency: 'MYR',
+      status: 'INITIATED',
+      metadata: {
+        mode: provider.mode,
+        checkout_url: checkout.sessionUrl,
+        provider_reference: checkout.providerReference,
+      },
+    });
+
+    if (insertError) {
+      return NextResponse.json({ error: insertError.message }, { status: 400 });
+    }
+
+    return NextResponse.json({
+      provider: checkout.provider,
+      mode: checkout.mode,
+      checkoutSession: {
+        id: checkout.checkoutId,
+        url: checkout.sessionUrl,
+        reference: checkout.providerReference,
+        amount: checkout.amount,
+        currency: checkout.currency,
+      },
+    });
+  } catch (error) {
+    const message = error instanceof Error ? error.message : 'Payment provider failed.';
+    return NextResponse.json({ error: message }, { status: 503 });
+  }
 }

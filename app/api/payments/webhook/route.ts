@@ -28,10 +28,14 @@ export async function POST(request: Request) {
 
   const provider = new ToyyibPayProvider({
     mode: process.env.TOYYIBPAY_MODE === 'live' ? 'live' : 'sandbox',
-    secret: process.env.TOYYIBPAY_SECRET_KEY ?? 'sandbox-toyyibpay-secret',
-    categoryCode: process.env.TOYYIBPAY_CATEGORY_CODE ?? 'sandbox-category',
-    baseUrl: process.env.TOYYIBPAY_BASE_URL ?? 'https://toyyibpay.com',
+    secret: process.env.TOYYIBPAY_SECRET_KEY,
+    categoryCode: process.env.TOYYIBPAY_CATEGORY_CODE,
+    baseUrl: process.env.TOYYIBPAY_BASE_URL,
   });
+
+  if (!process.env.TOYYIBPAY_SECRET_KEY) {
+    return NextResponse.json({ error: 'Payment provider is not configured.' }, { status: 503 });
+  }
 
   if (!provider.verifyWebhookSignature(rawBody, signature)) {
     return NextResponse.json({ error: 'Invalid webhook signature.' }, { status: 400 });

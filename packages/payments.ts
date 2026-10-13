@@ -66,8 +66,8 @@ export class ToyyibPayProvider extends PaymentProvider {
   constructor(options: PaymentProviderOptions = {}) {
     super();
     this.mode = options.mode ?? 'sandbox';
-    this.secret = options.secret ?? process.env.TOYYIBPAY_SECRET_KEY ?? (this.mode === 'live' ? '' : 'sandbox-toyyibpay-secret');
-    this.categoryCode = options.categoryCode ?? process.env.TOYYIBPAY_CATEGORY_CODE ?? 'sandbox-category';
+    this.secret = options.secret ?? process.env.TOYYIBPAY_SECRET_KEY ?? '';
+    this.categoryCode = options.categoryCode ?? process.env.TOYYIBPAY_CATEGORY_CODE ?? '';
     this.baseUrl = options.baseUrl ?? process.env.TOYYIBPAY_BASE_URL ?? 'https://toyyibpay.com';
   }
 
@@ -81,8 +81,8 @@ export class ToyyibPayProvider extends PaymentProvider {
     reference?: string;
     metadata?: Record<string, string>;
   }): PaymentProviderResponse {
-    if (this.mode === 'live' && !this.secret) {
-      throw new Error('ToyyibPay live credentials are not configured. Payment onboarding required.');
+    if (!this.secret || !this.categoryCode) {
+      throw new Error('ToyyibPay credentials are not configured. Payment onboarding required.');
     }
 
     const normalizedAmount = String(input.amount || '29.00');

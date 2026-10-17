@@ -1,5 +1,4 @@
 export type Role = 'OWNER' | 'ADMIN' | 'ACCOUNTANT' | 'STAFF' | 'VIEWER';
-export type SubscriptionStatus = 'TRIAL' | 'ACTIVE' | 'PAST_DUE' | 'GRACE_PERIOD' | 'SUSPENDED' | 'CANCELLED';
 export type AccountType = 'ASSET' | 'LIABILITY' | 'EQUITY' | 'REVENUE' | 'COGS' | 'EXPENSE';
 export type NormalBalance = 'DEBIT' | 'CREDIT';
 
@@ -32,16 +31,3 @@ export interface BusinessMember {
   createdAt: string;
 }
 
-export interface Subscription {
-  id: string;
-  businessId: string;
-  planCode: string;
-  status: SubscriptionStatus;
-  currentPeriodStart: string;
-  currentPeriodEnd: string;
-  trialStartedAt?: string | null;
-  trialEndsAt?: string | null;
-  gracePeriodEnd?: string | null;
-  createdAt: string;
-  updatedAt: string;
-}

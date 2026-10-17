@@ -90,7 +90,6 @@ export default function OpsFinanceLandingPage() {
 
           <nav id="opsfinance-mobile-nav" className={`main-nav ${mobileMenuOpen ? 'nav-open' : ''}`} aria-label="Primary navigation">
             <a href="#features" onClick={() => setMobileMenuOpen(false)}>Features</a>
-            <a href="#pricing" onClick={() => setMobileMenuOpen(false)}>Pricing</a>
             <a href="#about" onClick={() => setMobileMenuOpen(false)}>About Us</a>
             <a href="#resources" onClick={() => setMobileMenuOpen(false)}>Resources</a>
             <a href="#contact" onClick={() => setMobileMenuOpen(false)}>Contact</a>
@@ -105,7 +104,7 @@ export default function OpsFinanceLandingPage() {
                 Login
               </a>
               <a href="/register" className="primary-button">
-                Start 7-Day Free Trial
+                Open OpsFinance
               </a>
             </div>
           </div>
@@ -139,14 +138,14 @@ export default function OpsFinanceLandingPage() {
 
             <div className="hero-actions">
               <a href="/register" className="primary-button large">
-                Cuba Percuma 7 Hari
+                Daftar Masuk
               </a>
               <a href="#features" className="secondary-button">
-                Lihat Demo
+                Lihat Ciri
               </a>
             </div>
 
-            <p className="hero-note">Tiada kad kredit diperlukan • Batal bila-bila masa</p>
+            <p className="hero-note">Akses diterima melalui MYOPS dan identiti perniagaan yang sah.</p>
 
             <div className="feature-badges" aria-label="Product highlights">
               <span>Mudah Digunakan</span>
@@ -276,33 +275,6 @@ export default function OpsFinanceLandingPage() {
           </div>
         </section>
 
-        <section className="pricing-section" id="pricing" aria-labelledby="pricing-heading">
-          <div className="section-header centered">
-            <div className="eyebrow">Pricing</div>
-            <h2 id="pricing-heading">OpsFinance</h2>
-          </div>
-
-          <div className="price-card">
-            <div className="price-topline">RM29</div>
-            <div className="price-subline">/bulan / syarikat</div>
-
-            <ul className="price-list">
-              <li>1 Syarikat</li>
-              <li>1 Pengguna</li>
-              <li>Semua Fungsi Asas</li>
-              <li>Muat Naik &amp; Tukar</li>
-              <li>Laporan Lengkap</li>
-              <li>Penyelarasan Bank</li>
-              <li>Sokongan Malaysia</li>
-              <li>7-Day Free Trial</li>
-            </ul>
-
-            <a href="/register" className="primary-button large width-full">
-              Cuba Percuma 7 Hari
-            </a>
-          </div>
-        </section>
-
         <section className="reports-section" id="about" aria-labelledby="reports-heading">
           <div className="reports-copy">
             <div className="eyebrow">Laporan</div>
@@ -365,8 +337,7 @@ export default function OpsFinanceLandingPage() {
                 </ul>
               </div>
               <div>
-                <h3>Langganan</h3>
-                <p className="subscription-price">RM29/month/company</p>
+                <h3>Fungsi Asas</h3>
                 <ul>
                   <li>Print</li>
                   <li>Download</li>

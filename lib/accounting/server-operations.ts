@@ -12,6 +12,89 @@ export type UnifiedBankRow = {
   direction: 'DEBIT' | 'CREDIT';
 };
 
+function assertValidMoney(value: string | number | null | undefined, fieldName: string): number {
+  const raw = String(value ?? '').trim();
+  if (!raw) {
+    return 0;
+  }
+
+  const normalized = raw.replace(/,/g, '').trim();
+  if (!/^-?\d+(?:\.\d{1,2})?$/.test(normalized)) {
+    throw new Error(`${fieldName} must be a valid currency value.`);
+  }
+
+  const parsed = Number(normalized);
+  if (!Number.isFinite(parsed)) {
+    throw new Error(`${fieldName} must be a valid currency value.`);
+  }
+
+  return Number(Math.abs(parsed).toFixed(2));
+}
+
+export function validateApprovedBankRow(row: Partial<UnifiedBankRow>): { amount: string; debit: string; credit: string; direction: 'DEBIT' | 'CREDIT' } {
+  const debit = assertValidMoney(row.debit ?? '0.00', 'Bank row debit');
+  const credit = assertValidMoney(row.credit ?? '0.00', 'Bank row credit');
+  const explicitAmount = String(row.amount ?? '').trim();
+  const fallbackAmount = debit > 0 ? debit : credit > 0 ? credit : 0;
+  const rawAmount = assertValidMoney(explicitAmount && Number(explicitAmount) > 0 ? explicitAmount : fallbackAmount.toFixed(2), 'Bank row amount');
+
+  if (rawAmount <= 0) {
+    throw new Error('Bank statement rows must contain a positive amount.');
+  }
+
+  if (debit > 0 && credit > 0) {
+    throw new Error('Bank statement rows cannot contain both debit and credit values.');
+  }
+
+  const expectedDebit = debit > 0 ? debit : 0;
+  const expectedCredit = credit > 0 ? credit : 0;
+  const effectiveAmount = expectedDebit > 0 ? expectedDebit : expectedCredit;
+
+  if (!effectiveAmount || effectiveAmount !== Number(rawAmount.toFixed(2))) {
+    throw new Error('Bank statement row amount and debit/credit values do not match.');
+  }
+
+  if (expectedDebit === 0 && expectedCredit === 0) {
+    throw new Error('Bank statement rows must include either a debit or a credit value.');
+  }
+
+  const direction = expectedDebit > 0 ? 'DEBIT' : 'CREDIT';
+
+  return {
+    amount: rawAmount.toFixed(2),
+    debit: expectedDebit.toFixed(2),
+    credit: expectedCredit.toFixed(2),
+    direction,
+  };
+}
+
+export function buildPostingLinesForAccount(
+  account: { id: string; account_type?: string; normal_balance?: string; normalBalance?: string },
+  cashAccountId: string,
+  amount: string,
+  description: string,
+  bankDirection: 'DEBIT' | 'CREDIT' = 'DEBIT',
+): Array<{ account_id: string; debit: string; credit: string; description: string }> {
+  const amountValue = assertValidMoney(amount, 'Posting amount');
+  const normalizedType = String(account?.account_type ?? account?.normal_balance ?? '').toUpperCase();
+  const normalBalance = String(account?.normal_balance ?? account?.normalBalance ?? '').toUpperCase();
+  const usesCreditNormalBalance = normalBalance === 'CREDIT' || normalizedType === 'REVENUE' || normalizedType === 'LIABILITY' || normalizedType === 'EQUITY';
+  const accountSide = usesCreditNormalBalance ? (bankDirection === 'DEBIT' ? 'CREDIT' : 'DEBIT') : 'DEBIT';
+  const cashSide = accountSide === 'DEBIT' ? 'CREDIT' : 'DEBIT';
+
+  const buildLine = (targetAccountId: string, targetSide: 'DEBIT' | 'CREDIT') => ({
+    account_id: targetAccountId,
+    debit: targetSide === 'DEBIT' ? amountValue.toFixed(2) : '0.00',
+    credit: targetSide === 'CREDIT' ? amountValue.toFixed(2) : '0.00',
+    description,
+  });
+
+  return [
+    buildLine(account.id, accountSide),
+    buildLine(cashAccountId, cashSide),
+  ];
+}
+
 export async function assertBusinessMembership(
   supabase: any,
   userId: string,
@@ -53,21 +136,40 @@ export function normalizeBankCsvRows(csvText: string): UnifiedBankRow[] {
     const reference = String(record.reference ?? record.reference_no ?? record.invoice ?? record['transaction id'] ?? `${index + 1}`).trim();
     const rawDebit = String(record.debit ?? '').trim();
     const rawCredit = String(record.credit ?? '').trim();
-    const amount = String(record.amount ?? (rawDebit || rawCredit || '0.00')).trim();
-    const debit = rawDebit || (Number(amount) < 0 ? Math.abs(Number(amount)).toFixed(2) : '0.00');
-    const credit = rawCredit || (Number(amount) > 0 ? Math.abs(Number(amount)).toFixed(2) : '0.00');
-    const normalizedAmount = ((Number(amount) || 0) * 100) / 100;
+    const rawAmountInput = String(record.amount ?? '').trim();
 
+    const debitAmount = rawDebit ? assertValidMoney(rawDebit, 'Bank row debit') : 0;
+    const creditAmount = rawCredit ? assertValidMoney(rawCredit, 'Bank row credit') : 0;
+    const fallbackAmount = debitAmount > 0 ? debitAmount.toFixed(2) : creditAmount > 0 ? creditAmount.toFixed(2) : '0.00';
+    const rawAmount = rawAmountInput && Number(rawAmountInput) > 0 ? rawAmountInput : fallbackAmount;
+    const amountValue = assertValidMoney(rawAmount, 'Bank row amount');
+
+    if ((debitAmount > 0 && creditAmount > 0) || (debitAmount === 0 && creditAmount === 0)) {
+      throw new Error(`Bank statement row ${index + 1} must include exactly one side of the transaction.`);
+    }
+
+    if (amountValue <= 0) {
+      throw new Error(`Bank statement row ${index + 1} has an invalid or zero amount.`);
+    }
+
+    const effectiveDebit = debitAmount > 0 ? debitAmount : 0;
+    const effectiveCredit = creditAmount > 0 ? creditAmount : 0;
+    const combined = effectiveDebit + effectiveCredit;
+    if (combined !== amountValue) {
+      throw new Error(`Bank statement row ${index + 1} contains an inconsistent debit/credit amount.`);
+    }
+
+    const direction: 'DEBIT' | 'CREDIT' = effectiveDebit > 0 ? 'DEBIT' : 'CREDIT';
     return {
-      id: `bank-row-${index + 1}-${createDeterministicHash(`${date}|${description}|${reference}|${amount}`)}`,
+      id: `bank-row-${index + 1}-${createDeterministicHash(`${date}|${description}|${reference}|${amountValue.toFixed(2)}`)}`,
       date,
       description,
       reference,
-      amount: normalizedAmount.toFixed(2),
-      debit: Number(debit || '0').toFixed(2),
-      credit: Number(credit || '0').toFixed(2),
-      balance: String(record.balance ?? normalizedAmount.toFixed(2)),
-      direction: Number(debit || '0') > 0 ? 'DEBIT' : 'CREDIT',
+      amount: amountValue.toFixed(2),
+      debit: effectiveDebit.toFixed(2),
+      credit: effectiveCredit.toFixed(2),
+      balance: String(record.balance ?? amountValue.toFixed(2)),
+      direction,
     };
   });
 }
@@ -146,35 +248,40 @@ export async function persistBankStatementImport(
   financialAccountId?: string | null,
 ): Promise<{ statementId: string; rows: UnifiedBankRow[]; bankTransactions: Array<{ id: string; bank_statement_id: string; reference: string; amount: string; debit: string; credit: string; status: string }> }> {
   await assertBusinessMembership(supabase, userId, businessId);
+
+  const lowerFileName = String(fileName ?? '').toLowerCase();
+  const normalizedType = String(fileType ?? '').toLowerCase();
+  const isSupportedCsv = normalizedType.includes('csv') || normalizedType.includes('text/plain') || lowerFileName.endsWith('.csv') || lowerFileName.endsWith('.txt');
+  if (!isSupportedCsv) {
+    throw new Error('Unsupported upload format. CSV and TXT bank statements are supported.');
+  }
+
   const rows = normalizeBankCsvRows(content);
   const resolvedFinancialAccountId = await resolveFinancialAccountId(supabase, businessId, financialAccountId);
   const statementId = crypto.randomUUID();
   const now = new Date().toISOString();
 
-  const statementInsert = await supabase
-    .from('bank_statements')
-    .insert({
-      id: statementId,
-      business_id: businessId,
-      financial_account_id: resolvedFinancialAccountId,
-      file_name: fileName,
-      file_type: fileType,
-      statement_start_date: rows[0]?.date ? rows[0].date : null,
-      statement_end_date: rows[rows.length - 1]?.date ? rows[rows.length - 1].date : null,
-      opening_balance: '0.00',
-      closing_balance: '0.00',
-      status: 'IMPORTED',
-      uploaded_by: userId,
-      created_at: now,
-    })
-    .select();
+  const { error: statementError } = await supabase.from('bank_statements').insert({
+    id: statementId,
+    business_id: businessId,
+    financial_account_id: resolvedFinancialAccountId,
+    file_name: fileName,
+    file_type: fileType,
+    statement_start_date: rows[0]?.date ? rows[0].date : null,
+    statement_end_date: rows[rows.length - 1]?.date ? rows[rows.length - 1].date : null,
+    opening_balance: '0.00',
+    closing_balance: '0.00',
+    status: 'IMPORTED',
+    uploaded_by: userId,
+    created_at: now,
+  });
 
-  if (statementInsert.error) {
-    throw new Error(statementInsert.error.message ?? 'Unable to create bank statement record.');
+  if (statementError) {
+    throw new Error(statementError.message ?? 'Unable to create bank statement record.');
   }
 
   const bankTransactions = rows.map((row, index) => ({
-    id: crypto.randomUUID(),
+    id: row.id,
     bank_statement_id: statementId,
     transaction_date: row.date,
     description: row.description,
@@ -188,7 +295,7 @@ export async function persistBankStatementImport(
     order_index: index,
   }));
 
-  const insertResult = await supabase.from('bank_transactions').insert(
+  const { error: insertError, data: insertedRows } = await supabase.from('bank_transactions').insert(
     bankTransactions.map((row) => ({
       id: row.id,
       bank_statement_id: row.bank_statement_id,
@@ -204,8 +311,8 @@ export async function persistBankStatementImport(
     })),
   ).select();
 
-  if (insertResult.error) {
-    throw new Error(insertResult.error.message ?? 'Unable to insert bank transactions.');
+  if (insertError) {
+    throw new Error(insertError.message ?? 'Unable to insert bank transactions.');
   }
 
   await supabase.from('audit_logs').insert({
@@ -217,7 +324,7 @@ export async function persistBankStatementImport(
     metadata: { file_name: fileName, transaction_count: rows.length },
   });
 
-  return { statementId, rows, bankTransactions: insertResult.data ?? bankTransactions };
+  return { statementId, rows, bankTransactions: insertedRows ?? bankTransactions };
 }
 
 export async function postApprovedBankImport(
@@ -225,66 +332,134 @@ export async function postApprovedBankImport(
   userId: string,
   businessId: string,
   statementId: string,
-  rows: UnifiedBankRow[],
-  financialAccountId?: string | null,
+  accountId: string,
+  transactionType: string = 'JOURNAL',
 ): Promise<{ posted: Array<{ id: string; amount: string; status: string }>; summary: { totalAmount: string; postedCount: number } }> {
   await assertBusinessMembership(supabase, userId, businessId);
-  const { cashAccountId, revenueAccountId, expenseAccountId } = await getDefaultBusinessAccounts(supabase, businessId);
-  const resolvedFinancialAccountId = await resolveFinancialAccountId(supabase, businessId, financialAccountId);
 
-  const posted: Array<{ id: string; amount: string; status: string }> = [];
+  const statementQuery = await supabase
+    .from('bank_statements')
+    .select('id, business_id, status, financial_account_id')
+    .eq('id', statementId)
+    .eq('business_id', businessId)
+    .maybeSingle();
 
-  for (const row of rows) {
-    const amount = row.debit || row.credit || '0.00';
-    const isMoneyIn = row.direction === 'CREDIT';
-    const lines = isMoneyIn
-      ? [
-          { account_id: revenueAccountId, credit: amount, description: row.description, financial_account_id: resolvedFinancialAccountId },
-          { account_id: cashAccountId, debit: amount, description: row.description, financial_account_id: resolvedFinancialAccountId },
-        ]
-      : [
-          { account_id: expenseAccountId, debit: amount, description: row.description, financial_account_id: resolvedFinancialAccountId },
-          { account_id: cashAccountId, credit: amount, description: row.description, financial_account_id: resolvedFinancialAccountId },
-        ];
-
-    const idempotencyKey = `upload:${businessId}:${statementId}:${row.reference || row.id}`;
-    const result = await supabase.rpc('post_accounting_transaction_atomic', {
-      p_business_id: businessId,
-      p_idempotency_key: idempotencyKey,
-      p_transaction_type: isMoneyIn ? 'MONEY_IN' : 'MONEY_OUT',
-      p_transaction_date: row.date,
-      p_description: row.description,
-      p_reference_no: row.reference || row.id,
-      p_amount: amount,
-      p_financial_account_id: resolvedFinancialAccountId,
-      p_account_id: isMoneyIn ? revenueAccountId : expenseAccountId,
-      p_journal_no: `UP-${Date.now()}-${Math.random().toString(16).slice(2, 8)}`,
-      p_journal_description: row.description,
-      p_lines: lines,
-    });
-
-    if (result.error) {
-      throw new Error(result.error.message ?? 'Unable to post uploaded transaction.');
-    }
-
-    posted.push({ id: `${row.id}-posted`, amount, status: result.data?.status ?? 'POSTED' });
+  if (statementQuery.error) {
+    throw new Error(statementQuery.error.message ?? 'Unable to load the selected bank statement.');
   }
 
-  await supabase.from('bank_statements').update({ status: 'MATCHED' }).eq('id', statementId).eq('business_id', businessId);
-  await supabase.from('bank_transactions').update({ status: 'MATCHED' }).eq('bank_statement_id', statementId);
+  if (!statementQuery.data) {
+    throw new Error('The selected bank statement does not belong to this business.');
+  }
+
+  if (!['IMPORTED', 'UNMATCHED'].includes(statementQuery.data.status)) {
+    throw new Error('Statement approval is not allowed in the current status.');
+  }
+
+  const accountQuery = await supabase
+    .from('accounts')
+    .select('*')
+    .eq('id', accountId)
+    .eq('business_id', businessId)
+    .maybeSingle();
+
+  if (accountQuery.error) {
+    throw new Error(accountQuery.error.message ?? 'Unable to validate the selected posting account.');
+  }
+
+  if (!accountQuery.data) {
+    throw new Error('The selected posting account is invalid for this business.');
+  }
+
+  const { cashAccountId } = await getDefaultBusinessAccounts(supabase, businessId);
+  const { data: bankRows = [], error: bankRowError } = await supabase
+    .from('bank_transactions')
+    .select('*')
+    .eq('bank_statement_id', statementId)
+    .order('transaction_date', { ascending: true });
+
+  if (bankRowError) {
+    throw new Error(bankRowError.message ?? 'Unable to load bank statement rows.');
+  }
+
+  if (!bankRows.length) {
+    throw new Error('No statement rows are available for approval.');
+  }
+
+  if (bankRows.some((row: any) => row.status === 'MATCHED')) {
+    throw new Error('This statement already contains reconciled rows and cannot be re-approved.');
+  }
+
+  const allowedTransactionTypes = new Set(['MONEY_IN', 'MONEY_OUT', 'JOURNAL', 'TRANSFER']);
+  const safeTransactionType = allowedTransactionTypes.has(String(transactionType ?? '').toUpperCase()) ? String(transactionType ?? '').toUpperCase() : 'JOURNAL';
+
+  const posted: Array<{ id: string; amount: string; status: string }> = [];
+  const failedRowIds: string[] = [];
+
+  for (const row of bankRows) {
+    const validated = validateApprovedBankRow(row);
+    const amountValue = validated.amount;
+    const idempotencyKey = `upload:${businessId}:${statementId}:${row.id}`;
+    const lines = buildPostingLinesForAccount(accountQuery.data, cashAccountId, amountValue, row.description ?? 'Approved bank statement posting', validated.direction);
+
+    try {
+      const result = await supabase.rpc('post_accounting_transaction_atomic', {
+        p_business_id: businessId,
+        p_idempotency_key: idempotencyKey,
+        p_transaction_type: safeTransactionType,
+        p_transaction_date: row.transaction_date,
+        p_description: row.description,
+        p_reference_no: row.reference || row.id,
+        p_amount: amountValue,
+        p_financial_account_id: statementQuery.data.financial_account_id,
+        p_account_id: accountQuery.data.id,
+        p_journal_no: `UPLOAD-${Date.now()}-${String(Math.random()).slice(2, 8)}`,
+        p_journal_description: row.description,
+        p_lines: lines,
+      });
+
+      if (result?.error) {
+        throw new Error(result.error.message ?? 'Unable to post the selected statement row.');
+      }
+
+      posted.push({ id: row.id, amount: amountValue, status: result?.data?.status ?? 'POSTED' });
+    } catch (error) {
+      failedRowIds.push(row.id);
+      if (posted.length) {
+        await supabase.from('audit_logs').insert({
+          business_id: businessId,
+          user_id: userId,
+          action: 'UPLOAD_BATCH_PARTIAL_FAILURE',
+          entity_type: 'BANK_STATEMENT',
+          entity_id: statementId,
+          metadata: {
+            posted_count: posted.length,
+            failed_row_ids: failedRowIds,
+            account_id: accountId,
+            attempted_row_count: bankRows.length,
+            error: error instanceof Error ? error.message : 'Unknown post error',
+          },
+        });
+      }
+      throw new Error(`Batch posting failed after ${posted.length} rows. Retry the statement to continue posting the remaining rows without duplicate ledger entries.`);
+    }
+  }
+
+  await supabase.from('bank_statements').update({ status: 'UNMATCHED' }).eq('id', statementId).eq('business_id', businessId);
+  await supabase.from('bank_transactions').update({ status: 'UNMATCHED' }).eq('bank_statement_id', statementId);
   await supabase.from('audit_logs').insert({
     business_id: businessId,
     user_id: userId,
     action: 'UPLOAD_APPROVED',
     entity_type: 'BANK_STATEMENT',
     entity_id: statementId,
-    metadata: { rows_posted: posted.length },
+    metadata: { posted_count: posted.length, account_id: accountId, transaction_type: safeTransactionType },
   });
 
   return {
     posted,
     summary: {
-      totalAmount: rows.reduce((sum, row) => sum + Number(row.amount || '0.00'), 0).toFixed(2),
+      totalAmount: posted.reduce((sum, row) => sum + Number(row.amount || '0.00'), 0).toFixed(2),
       postedCount: posted.length,
     },
   };
@@ -309,7 +484,7 @@ export async function getReconciliationSnapshot(
     supabase.from('reconciliation_matches').select('*').eq('business_id', businessId),
   ]);
 
-  const unmatchedBank = (bankTransactions as any[]).filter((transaction: any) => transaction.status !== 'MATCHED').length;
+  const unmatchedBank = (bankTransactions as any[]).filter((transaction: any) => transaction.status !== 'MATCHED' && transaction.status !== 'PARTIAL').length;
   const matched = (matches as any[]).length;
   const summary = {
     matched,
@@ -333,50 +508,81 @@ export async function createReconciliationMatch(
   matchedAmount: string,
 ): Promise<{ matchId: string }> {
   await assertBusinessMembership(supabase, userId, businessId);
+  const amountValue = assertValidMoney(matchedAmount, 'Matched amount');
 
-  const bankTransaction = await supabase
+  const { data: bankTransaction, error: bankError } = await supabase
     .from('bank_transactions')
-    .select('id, bank_statement_id')
+    .select('id, bank_statement_id, amount, status, business_id')
     .eq('id', bankTransactionId)
     .maybeSingle();
 
-  const transaction = await supabase
+  if (bankError) throw new Error(bankError.message ?? 'Unable to load the selected bank transaction.');
+  if (!bankTransaction) throw new Error('The selected bank transaction is not valid.');
+
+  const statementCheck = await supabase.from('bank_statements').select('id, business_id').eq('id', bankTransaction.bank_statement_id).maybeSingle();
+  if (statementCheck.error) throw new Error(statementCheck.error.message ?? 'Unable to validate statement ownership.');
+  if (!statementCheck.data || statementCheck.data.business_id !== businessId) {
+    throw new Error('The selected bank transaction does not belong to this business.');
+  }
+
+  if (bankTransaction.status === 'MATCHED') {
+    throw new Error('This bank transaction is already fully matched.');
+  }
+
+  if (amountValue <= 0 || amountValue > Number(bankTransaction.amount || '0.00')) {
+    throw new Error('The matched amount must be positive and cannot exceed the bank transaction amount.');
+  }
+
+  const { data: transaction, error: transactionError } = await supabase
     .from('transactions')
-    .select('id')
+    .select('id, business_id, amount, status')
     .eq('id', transactionId)
     .eq('business_id', businessId)
     .eq('status', 'POSTED')
     .maybeSingle();
 
-  if (bankTransaction.error || transaction.error || !bankTransaction.data || !transaction.data) {
-    throw new Error('The selected bank and book transactions are not valid for this business.');
+  if (transactionError) throw new Error(transactionError.message ?? 'Unable to load the selected book transaction.');
+  if (!transaction) throw new Error('The selected book transaction is invalid for this business.');
+
+  const { data: existingMatch } = await supabase
+    .from('reconciliation_matches')
+    .select('id')
+    .eq('business_id', businessId)
+    .eq('bank_transaction_id', bankTransactionId)
+    .maybeSingle();
+
+  if (existingMatch) {
+    throw new Error('This bank transaction already has a reconciliation match.');
   }
 
-  const result = await supabase.from('reconciliation_matches').insert({
+  const { data: insertedMatch, error: insertError } = await supabase.from('reconciliation_matches').insert({
     business_id: businessId,
     bank_transaction_id: bankTransactionId,
     transaction_id: transactionId,
-    matched_amount: matchedAmount,
-    match_type: 'MANUAL',
+    matched_amount: amountValue.toFixed(2),
+    match_type: amountValue < Number(bankTransaction.amount || '0.00') ? 'PARTIAL' : 'MANUAL',
     matched_by: userId,
     matched_at: new Date().toISOString(),
   }).select().single();
 
-  if (result.error) {
-    throw new Error(result.error.message ?? 'Unable to save the reconciliation match.');
+  if (insertError) {
+    throw new Error(insertError.message ?? 'Unable to save the reconciliation match.');
   }
 
-  await supabase.from('bank_transactions').update({ status: 'MATCHED' }).eq('id', bankTransactionId);
+  await supabase.from('bank_transactions').update({
+    status: amountValue < Number(bankTransaction.amount || '0.00') ? 'PARTIAL' : 'MATCHED',
+  }).eq('id', bankTransactionId).eq('bank_statement_id', bankTransaction.bank_statement_id);
+
   await supabase.from('audit_logs').insert({
     business_id: businessId,
     user_id: userId,
     action: 'RECONCILIATION_MATCHED',
     entity_type: 'BANK_TRANSACTION',
     entity_id: bankTransactionId,
-    metadata: { transaction_id: transactionId, matched_amount: matchedAmount },
+    metadata: { transaction_id: transactionId, matched_amount: amountValue.toFixed(2) },
   });
 
-  return { matchId: result.data.id };
+  return { matchId: insertedMatch.id };
 }
 
 export async function completeReconciliation(
@@ -387,15 +593,25 @@ export async function completeReconciliation(
 ): Promise<{ status: string }> {
   await assertBusinessMembership(supabase, userId, businessId);
 
-  const { data: bankTransactions = [], error: statementLoadError } = await supabase
+  const { data: statement, error: statementError } = await supabase
+    .from('bank_statements')
+    .select('id, business_id, status')
+    .eq('id', statementId)
+    .eq('business_id', businessId)
+    .maybeSingle();
+
+  if (statementError) throw new Error(statementError.message ?? 'Unable to load the selected statement.');
+  if (!statement) throw new Error('The selected statement does not belong to this business.');
+
+  const { data: bankTransactions = [], error: bankError } = await supabase
     .from('bank_transactions')
-    .select('id, status')
+    .select('id, status, amount')
     .eq('bank_statement_id', statementId);
 
-  if (statementLoadError) throw new Error(statementLoadError.message ?? 'Unable to load outstanding bank transactions.');
+  if (bankError) throw new Error(bankError.message ?? 'Unable to load outstanding bank transactions.');
 
   if ((bankTransactions as any[]).some((row: any) => row.status !== 'MATCHED')) {
-    throw new Error('Reconciliation cannot be finalized while mandatory exceptions remain unresolved.');
+    throw new Error('Reconciliation cannot be finalized while unresolved lines remain.');
   }
 
   const update = await supabase.from('bank_statements').update({ status: 'MATCHED' }).eq('id', statementId).eq('business_id', businessId);

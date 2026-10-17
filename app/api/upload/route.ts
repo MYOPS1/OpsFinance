@@ -5,10 +5,7 @@ import { createSupabaseServerClient } from '@/lib/supabase/server';
 
 export async function GET(request: Request) {
   const supabase = await createSupabaseServerClient();
-  const {
-    data: { user },
-    error: authError,
-  } = await supabase.auth.getUser();
+  const { data: { user }, error: authError } = await supabase.auth.getUser();
 
   if (authError || !user) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
@@ -16,14 +13,13 @@ export async function GET(request: Request) {
 
   const { searchParams } = new URL(request.url);
   const businessId = searchParams.get('businessId');
-
   if (!businessId) {
     return NextResponse.json({ error: 'A businessId is required.' }, { status: 400 });
   }
 
   try {
     await assertBusinessMembership(supabase, user.id, businessId);
-    const { data: statements, error } = await supabase
+    const { data: statementsData, error } = await supabase
       .from('bank_statements')
       .select('*')
       .eq('business_id', businessId)
@@ -33,17 +29,18 @@ export async function GET(request: Request) {
       return NextResponse.json({ error: error.message }, { status: 400 });
     }
 
-    const statementIds = (statements ?? []).map((statement: any) => statement.id);
+    const statements = Array.isArray(statementsData) ? statementsData : [];
+    const statementIds = statements.map((statement: any) => statement.id);
     const { data: transactions = [], error: txnError } = await supabase
       .from('bank_transactions')
       .select('*')
-      .in('bank_statement_id', statementIds.length > 0 ? statementIds : ['__none__']);
+      .in('bank_statement_id', statementIds.length ? statementIds : ['__none__']);
 
     if (txnError) {
       return NextResponse.json({ error: txnError.message }, { status: 400 });
     }
 
-    return NextResponse.json({ statements: statements ?? [], transactions: transactions ?? [] });
+    return NextResponse.json({ statements, transactions });
   } catch (caughtError) {
     const message = caughtError instanceof Error ? caughtError.message : 'Business access denied.';
     return NextResponse.json({ error: message }, { status: 403 });
@@ -52,10 +49,7 @@ export async function GET(request: Request) {
 
 export async function POST(request: Request) {
   const supabase = await createSupabaseServerClient();
-  const {
-    data: { user },
-    error: authError,
-  } = await supabase.auth.getUser();
+  const { data: { user }, error: authError } = await supabase.auth.getUser();
 
   if (authError || !user) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
@@ -64,7 +58,7 @@ export async function POST(request: Request) {
   try {
     const payload = await request.json().catch(() => ({}));
     const businessId = String(payload.businessId ?? '').trim();
-    const action = String(payload.action ?? 'preview').trim();
+    const action = String(payload.action ?? '').trim();
 
     if (!businessId) {
       return NextResponse.json({ error: 'A businessId is required.' }, { status: 400 });
@@ -73,9 +67,14 @@ export async function POST(request: Request) {
     await assertBusinessMembership(supabase, user.id, businessId);
 
     if (action === 'preview') {
-      const content = String(payload.content ?? '');
+      const content = String(payload.content ?? '').trim();
       const fileName = String(payload.fileName ?? 'upload.csv').trim() || 'upload.csv';
       const fileType = String(payload.fileType ?? 'text/csv').trim() || 'text/csv';
+
+      if (!content) {
+        return NextResponse.json({ error: 'Upload content is required for preview.' }, { status: 400 });
+      }
+
       const statementResult = await persistBankStatementImport(
         supabase,
         user.id,
@@ -94,38 +93,20 @@ export async function POST(request: Request) {
       });
     }
 
-    if (action === 'approve' || action === 'post') {
+    if (action === 'approve') {
       const statementId = String(payload.statementId ?? '').trim();
+      const accountId = String(payload.accountId ?? '').trim();
+      const transactionType = String(payload.transactionType ?? 'JOURNAL').trim();
+
       if (!statementId) {
         return NextResponse.json({ error: 'A statementId is required.' }, { status: 400 });
       }
 
-      const rowsPayload = Array.isArray(payload.rows) ? payload.rows : [];
-      const rows = rowsPayload.map((row: any) => ({
-        id: String(row.id ?? crypto.randomUUID()),
-        date: String(row.date ?? ''),
-        description: String(row.description ?? ''),
-        reference: String(row.reference ?? ''),
-        amount: String(row.amount ?? '0.00'),
-        debit: String(row.debit ?? '0.00'),
-        credit: String(row.credit ?? '0.00'),
-        balance: String(row.balance ?? '0.00'),
-        direction: row.direction === 'DEBIT' ? 'DEBIT' : 'CREDIT',
-      }));
-
-      if (rows.length === 0) {
-        return NextResponse.json({ error: 'No uploaded rows are available to approve.' }, { status: 400 });
+      if (!accountId) {
+        return NextResponse.json({ error: 'A selected posting account is required before approval.' }, { status: 400 });
       }
 
-      const result = await postApprovedBankImport(
-        supabase,
-        user.id,
-        businessId,
-        statementId,
-        rows,
-        payload.financialAccountId ?? null,
-      );
-
+      const result = await postApprovedBankImport(supabase, user.id, businessId, statementId, accountId, transactionType);
       return NextResponse.json({ ok: true, ...result });
     }
 

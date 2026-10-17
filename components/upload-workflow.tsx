@@ -1,49 +1,63 @@
 'use client';
 
-import React, { useMemo, useState } from 'react';
-
-import { AccountingEngine } from '../packages/accounting';
-import { UploadConvertService } from '../packages/upload';
-
-const defaultCsv = `Date,Description,Reference,Debit,Credit,Balance
-2026-09-12,Customer payment,INV-1001,,500.00,5000.00
-2026-09-16,Petrol purchase,PO-2041,120.00,,4880.00`;
-
-function buildDemoEngine(businessId: string): AccountingEngine {
-  return new AccountingEngine({
-    businessId,
-    accounts: [
-      { id: 'coa-sales', businessId, code: '4000', name: 'Sales', accountType: 'REVENUE', normalBalance: 'CREDIT', isSystem: false, isActive: true },
-      { id: 'coa-expense', businessId, code: '6000', name: 'Petrol', accountType: 'EXPENSE', normalBalance: 'DEBIT', isSystem: false, isActive: true },
-      { id: 'coa-cash', businessId, code: '1100', name: 'Cash', accountType: 'ASSET', normalBalance: 'DEBIT', isSystem: false, isActive: true },
-    ],
-    periods: [{ id: 'period-demo', businessId, name: '2026-09', startDate: '2026-09-01', endDate: '2026-09-30', status: 'OPEN' }],
-    financialAccounts: [{ id: 'fa-bank-demo', businessId, name: 'Demo Bank', type: 'BANK', accountCode: 'DBK', currency: 'MYR', status: 'ACTIVE' }],
-  });
-}
+import { useEffect, useMemo, useState } from 'react';
 
 type UploadWorkflowProps = {
   businessId?: string;
   businessContextError?: string | null;
 };
 
+type AccountOption = {
+  id: string;
+  code: string;
+  name: string;
+  account_type?: string;
+  normal_balance?: string;
+};
+
+type UploadRow = {
+  id: string;
+  date: string;
+  description: string;
+  reference: string;
+  amount: string;
+  debit: string;
+  credit: string;
+  balance: string;
+  direction: 'DEBIT' | 'CREDIT';
+};
+
 export function UploadWorkflow({ businessId, businessContextError }: UploadWorkflowProps) {
-  const [service, setService] = useState<UploadConvertService | null>(null);
-  const [batch, setBatch] = useState<any>(null);
-  const [sourceText, setSourceText] = useState(defaultCsv);
-  const [selectedCandidateId, setSelectedCandidateId] = useState<string | null>(null);
+  const [accounts, setAccounts] = useState<AccountOption[]>([]);
+  const [statementId, setStatementId] = useState<string | null>(null);
+  const [rows, setRows] = useState<UploadRow[]>([]);
+  const [sourceText, setSourceText] = useState('');
+  const [selectedAccountId, setSelectedAccountId] = useState('');
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
 
-  const previewSummary = useMemo(() => ({
-    matched: batch?.candidates?.filter((candidate: any) => candidate.status === 'APPROVED' || candidate.status === 'POSTED').length ?? 0,
-    pending: batch?.candidates?.filter((candidate: any) => candidate.status !== 'APPROVED' && candidate.status !== 'POSTED').length ?? 0,
-  }), [batch]);
+  useEffect(() => {
+    const activeBusinessId = businessId ?? '';
+    if (!activeBusinessId) return;
 
-  const activeSelectedCandidateId = batch && selectedCandidateId && batch.candidates.some((candidate: any) => candidate.id === selectedCandidateId)
-    ? selectedCandidateId
-    : batch?.candidates[0]?.id ?? null;
+    async function loadAccounts() {
+      const response = await fetch(`/api/accounts?businessId=${encodeURIComponent(activeBusinessId)}`);
+      if (!response.ok) {
+        setAccounts([]);
+        return;
+      }
+      const payload = await response.json();
+      setAccounts(Array.isArray(payload.accounts) ? payload.accounts : []);
+    }
+
+    loadAccounts().catch(() => setAccounts([]));
+  }, [businessId]);
+
+  const previewSummary = useMemo(() => ({
+    total: rows.length,
+    totalAmount: rows.reduce((sum, row) => sum + Number(row.amount || '0.00'), 0).toFixed(2),
+  }), [rows]);
 
   if (!businessId) {
     return (
@@ -56,41 +70,106 @@ export function UploadWorkflow({ businessId, businessContextError }: UploadWorkf
     );
   }
 
-  const handleApprove = () => {
-    if (!service || !activeSelectedCandidateId) {
-      setError('Select a candidate before approving it.');
-      return;
-    }
+  const handleFileSelection = async (file: File) => {
+    if (!file) return;
+
+    const content = await file.text();
+    setSourceText(content);
+    setError(null);
+    setSuccess(null);
+    setIsLoading(true);
 
     try {
-      setIsLoading(true);
-      setError(null);
-      const approved = service.approveCandidate(activeSelectedCandidateId, 'ui-user');
-      setBatch((current: any) => current ? ({ ...current, candidates: current.candidates.map((candidate: any) => candidate.id === approved.id ? approved : candidate), status: 'APPROVED' }) : current);
-      setSuccess(`Approved ${approved.suggestion.description}.`);
+      const response = await fetch('/api/upload', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'preview', businessId, fileName: file.name, fileType: file.type || 'text/csv', content }),
+      });
+
+      const payload = await response.json();
+      if (!response.ok || payload.error) {
+        throw new Error(payload.error ?? 'Upload preview failed.');
+      }
+
+      setStatementId(payload.statementId ?? null);
+      setRows(Array.isArray(payload.rows) ? payload.rows : []);
+      setSuccess(`Preview loaded ${payload.rows?.length ?? 0} statement rows.`);
     } catch (caughtError) {
-      setError(caughtError instanceof Error ? caughtError.message : 'The selected candidate could not be approved.');
-      setSuccess(null);
+      setError(caughtError instanceof Error ? caughtError.message : 'Preview failed.');
+      setStatementId(null);
+      setRows([]);
     } finally {
       setIsLoading(false);
     }
   };
 
-  const handlePost = () => {
-    if (!service || !activeSelectedCandidateId) {
-      setError('No approved candidate is ready to post.');
+  const handleParseReview = async () => {
+    const payloadBody = sourceText.trim();
+    if (!payloadBody) {
+      setError('Upload a statement or paste a statement export before parsing.');
+      setSuccess(null);
       return;
     }
 
+    setIsLoading(true);
+    setError(null);
+    setSuccess(null);
+
     try {
-      setIsLoading(true);
-      setError(null);
-      const posted = service.postApprovedCandidate(activeSelectedCandidateId, 'ui-user', businessId);
-      setBatch((current: any) => current ? ({ ...current, candidates: current.candidates.map((candidate: any) => candidate.id === activeSelectedCandidateId ? { ...candidate, status: 'POSTED' } : candidate), status: 'POSTED' }) : current);
-      setSuccess(`Posted ${posted.journalId ?? 'journal'} for ${posted.amount ?? 'the selected transaction'}.`);
+      const response = await fetch('/api/upload', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'preview', businessId, fileName: 'statement.csv', fileType: 'text/csv', content: payloadBody }),
+      });
+
+      const payload = await response.json();
+      if (!response.ok || payload.error) {
+        throw new Error(payload.error ?? 'Upload preview failed.');
+      }
+
+      setStatementId(payload.statementId ?? null);
+      setRows(Array.isArray(payload.rows) ? payload.rows : []);
+      setSuccess(`Preview loaded ${payload.rows?.length ?? 0} statement rows.`);
     } catch (caughtError) {
-      setError(caughtError instanceof Error ? caughtError.message : 'The approved candidate could not be posted.');
-      setSuccess(null);
+      setError(caughtError instanceof Error ? caughtError.message : 'Preview failed.');
+      setStatementId(null);
+      setRows([]);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleApprove = async () => {
+    if (!statementId || !selectedAccountId) {
+      setError('Select a posting account before approving the import.');
+      return;
+    }
+
+    setIsLoading(true);
+    setError(null);
+    setSuccess(null);
+
+    try {
+      const response = await fetch('/api/upload', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          action: 'approve',
+          businessId,
+          statementId,
+          accountId: selectedAccountId,
+          transactionType: 'JOURNAL',
+        }),
+      });
+
+      const payload = await response.json();
+      if (!response.ok || payload.error) {
+        throw new Error(payload.error ?? 'Approval failed.');
+      }
+
+      setSuccess(`Approved and posted ${payload.summary?.postedCount ?? 0} rows.`);
+    } catch (caughtError) {
+      setError(caughtError instanceof Error ? caughtError.message : 'Approval failed.');
     } finally {
       setIsLoading(false);
     }
@@ -101,119 +180,89 @@ export function UploadWorkflow({ businessId, businessContextError }: UploadWorkf
       <div style={{ maxWidth: 1100, margin: '0 auto', display: 'grid', gap: '1rem' }}>
         <div style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: 18, padding: '1.5rem' }}>
           <h1 style={{ marginTop: 0 }}>Upload &amp; Convert</h1>
-          <p style={{ marginBottom: 0 }}>Review imported bank activity before posting.</p>
-          <p style={{ marginBottom: 0 }}>Upload workflows are gated to the active business: {businessId}.</p>
+          <p style={{ marginBottom: 0 }}>Import statement data and approve it server-side before posting to the ledger.</p>
         </div>
 
         <section style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: 18, padding: '1rem', display: 'grid', gap: '0.8rem' }}>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '0.75rem' }}>
-            <label style={{ display: 'grid', gap: '0.25rem' }}>
-              File selection
-              <input type="file" accept=".csv,.xls,.xlsx,.pdf,.png,.jpg,.jpeg,.webp" onChange={async (event) => {
-                const file = event.target.files?.[0];
-                if (!file || !businessId) return;
-                const text = await file.text();
-                setSourceText(text);
-                const validation = new UploadConvertService(buildDemoEngine(businessId)).validateFile({ name: file.name, size: file.size, type: file.type || 'application/octet-stream', content: text });
-                if (!validation.isValid) {
-                  setError(validation.errors.join(' '));
-                  setBatch(null);
-                  setSelectedCandidateId(null);
-                  return;
-                }
-                const nextService = new UploadConvertService(buildDemoEngine(businessId));
-                const nextBatch = nextService.processBankStatementCsv(text, file.name, businessId, 'ui-user');
-                setService(nextService);
-                setBatch(nextBatch);
-                setSelectedCandidateId(nextBatch.candidates[0]?.id ?? null);
-                setError(nextBatch.errors.length ? nextBatch.errors[0].error : null);
-              }} />
-            </label>
-          </div>
-
           <label style={{ display: 'grid', gap: '0.25rem' }}>
-            CSV preview
-            <textarea
-              value={sourceText}
-              onChange={(event) => setSourceText(event.target.value)}
-              rows={10}
-              style={{ resize: 'vertical', fontFamily: 'monospace' }}
+            Upload a bank statement
+            <input
+              type="file"
+              accept=".csv,.xls,.xlsx,.pdf,.png,.jpg,.jpeg,.webp"
+              onChange={async (event) => {
+                const file = event.target.files?.[0];
+                if (file) {
+                  await handleFileSelection(file);
+                }
+              }}
             />
           </label>
 
+          <label style={{ display: 'grid', gap: '0.25rem' }}>
+            Preview content
+            <textarea
+              value={sourceText}
+              onChange={(event) => setSourceText(event.target.value)}
+              rows={12}
+              style={{ resize: 'vertical', fontFamily: 'monospace' }}
+              placeholder="Upload a CSV bank statement or paste a statement export to preview it here."
+            />
+          </label>
+
+          <label style={{ display: 'grid', gap: '0.25rem' }}>
+            Posting account
+            <select value={selectedAccountId} onChange={(event) => setSelectedAccountId(event.target.value)}>
+              <option value="">Select the accounting category</option>
+              {accounts.map((account) => (
+                <option key={account.id} value={account.id}>
+                  {account.code} - {account.name}
+                </option>
+              ))}
+            </select>
+          </label>
+
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.75rem' }}>
-            <button type="button" onClick={() => {
-              if (!businessId) return;
-              const nextService = new UploadConvertService(buildDemoEngine(businessId));
-              const nextBatch = nextService.processBankStatementCsv(sourceText, 'demo-bank.csv', businessId, 'ui-user');
-              setService(nextService);
-              setBatch(nextBatch);
-              setSelectedCandidateId(nextBatch.candidates[0]?.id ?? null);
-              setError(nextBatch.errors.length ? nextBatch.errors[0].error : null);
-              setSuccess(null);
-            }} style={{ background: '#0f172a', color: '#fff', border: 'none', borderRadius: 10, padding: '0.7rem 1rem', fontWeight: 700, cursor: 'pointer' }}>
-              Parse &amp; review
+            <button type="button" onClick={handleParseReview} disabled={isLoading || !sourceText.trim()} style={{ background: '#0f172a', color: '#fff', border: 'none', borderRadius: 10, padding: '0.7rem 1rem', fontWeight: 700, cursor: 'pointer' }}>
+              {isLoading ? 'Processing…' : 'Parse & review'}
             </button>
-            <button type="button" onClick={handleApprove} disabled={isLoading || !activeSelectedCandidateId} style={{ background: '#e2e8f0', color: '#0f172a', border: 'none', borderRadius: 10, padding: '0.7rem 1rem', fontWeight: 700, cursor: isLoading ? 'not-allowed' : 'pointer' }}>
-              Approve selected
-            </button>
-            <button type="button" onClick={handlePost} disabled={isLoading || !activeSelectedCandidateId} style={{ background: '#0f172a', color: '#fff', border: 'none', borderRadius: 10, padding: '0.7rem 1rem', fontWeight: 700, cursor: isLoading ? 'not-allowed' : 'pointer' }}>
-              Post approved
+            <button type="button" onClick={handleApprove} disabled={isLoading || !statementId || !selectedAccountId} style={{ background: '#0f172a', color: '#fff', border: 'none', borderRadius: 10, padding: '0.7rem 1rem', fontWeight: 700, cursor: 'pointer' }}>
+              {isLoading ? 'Processing…' : 'Approve and post'}
             </button>
           </div>
-        </section>
 
-        {error ? <div role="alert" style={{ background: '#fff1f2', border: '1px solid #fecdd3', borderRadius: 18, padding: '1rem' }}>{error}</div> : null}
-        {success ? <div role="status" style={{ background: '#ecfdf5', border: '1px solid #a7f3d0', borderRadius: 18, padding: '1rem' }}>{success}</div> : null}
+          {error ? <div style={{ color: '#b91c1c', fontWeight: 600 }}>{error}</div> : null}
+          {success ? <div style={{ color: '#166534', fontWeight: 600 }}>{success}</div> : null}
 
-        <section style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: 18, padding: '1rem' }}>
-          <div style={{ display: 'flex', justifyContent: 'space-between', gap: '1rem', flexWrap: 'wrap', marginBottom: '0.75rem' }}>
-            <strong>Review preview</strong>
-            <span>{previewSummary.pending} pending / {previewSummary.matched} approved</span>
-          </div>
-
-          {!batch ? (
-            <p style={{ margin: 0 }}>No import has been reviewed yet.</p>
-          ) : (
-            <>
-              {batch.errors.length > 0 ? (
-                <ul style={{ marginBottom: '1rem', color: '#475569' }}>
-                  {batch.errors.map((entry: any, index: number) => (
-                    <li key={`${entry.error}-${index}`}>{entry.error}</li>
-                  ))}
-                </ul>
-              ) : null}
-
-              <div style={{ overflowX: 'auto' }}>
-                <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-                  <thead>
-                    <tr>
-                      <th style={{ textAlign: 'left', padding: '0.5rem', borderBottom: '1px solid #e2e8f0' }}>Reference</th>
-                      <th style={{ textAlign: 'left', padding: '0.5rem', borderBottom: '1px solid #e2e8f0' }}>Description</th>
-                      <th style={{ textAlign: 'right', padding: '0.5rem', borderBottom: '1px solid #e2e8f0' }}>Amount</th>
-                      <th style={{ textAlign: 'left', padding: '0.5rem', borderBottom: '1px solid #e2e8f0' }}>Status</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {batch.candidates.length === 0 ? (
-                      <tr><td colSpan={4} style={{ padding: '0.75rem' }}>No candidates were generated from the uploaded content.</td></tr>
-                    ) : batch.candidates.map((candidate: any) => (
-                      <tr key={candidate.id} style={{ background: activeSelectedCandidateId === candidate.id ? '#f8fafc' : 'transparent' }}>
-                        <td style={{ padding: '0.5rem', borderBottom: '1px solid #f1f5f9' }}>
-                          <button type="button" onClick={() => setSelectedCandidateId(candidate.id)} style={{ background: 'transparent', border: 'none', color: '#0f172a', fontWeight: 700, cursor: 'pointer', padding: 0 }}>
-                            {candidate.normalized.reference ?? candidate.suggestion.referenceNo ?? '—'}
-                          </button>
-                        </td>
-                        <td style={{ padding: '0.5rem', borderBottom: '1px solid #f1f5f9' }}>{candidate.normalized.description}</td>
-                        <td style={{ textAlign: 'right', padding: '0.5rem', borderBottom: '1px solid #f1f5f9' }}>RM{Number(candidate.normalized.amount ?? '0').toFixed(2)}</td>
-                        <td style={{ padding: '0.5rem', borderBottom: '1px solid #f1f5f9' }}>{candidate.status}</td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+          {rows.length ? (
+            <div style={{ overflowX: 'auto' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
+                <strong>Imported rows</strong>
+                <span>{previewSummary.total} rows · total {previewSummary.totalAmount}</span>
               </div>
-            </>
-          )}
+              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.95rem' }}>
+                <thead>
+                  <tr>
+                    <th style={{ borderBottom: '1px solid #e2e8f0', textAlign: 'left', padding: '0.5rem' }}>Date</th>
+                    <th style={{ borderBottom: '1px solid #e2e8f0', textAlign: 'left', padding: '0.5rem' }}>Description</th>
+                    <th style={{ borderBottom: '1px solid #e2e8f0', textAlign: 'left', padding: '0.5rem' }}>Reference</th>
+                    <th style={{ borderBottom: '1px solid #e2e8f0', textAlign: 'left', padding: '0.5rem' }}>Amount</th>
+                    <th style={{ borderBottom: '1px solid #e2e8f0', textAlign: 'left', padding: '0.5rem' }}>Direction</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {rows.map((row) => (
+                    <tr key={row.id}>
+                      <td style={{ borderBottom: '1px solid #f1f5f9', padding: '0.5rem' }}>{row.date}</td>
+                      <td style={{ borderBottom: '1px solid #f1f5f9', padding: '0.5rem' }}>{row.description}</td>
+                      <td style={{ borderBottom: '1px solid #f1f5f9', padding: '0.5rem' }}>{row.reference}</td>
+                      <td style={{ borderBottom: '1px solid #f1f5f9', padding: '0.5rem' }}>{row.amount}</td>
+                      <td style={{ borderBottom: '1px solid #f1f5f9', padding: '0.5rem' }}>{row.direction}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          ) : null}
         </section>
       </div>
     </main>

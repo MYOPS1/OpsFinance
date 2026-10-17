@@ -113,11 +113,12 @@ function NavigationList({ isMobile = false, onNavigate }: { isMobile?: boolean; 
 export function AuthenticatedAppShell({ children, businessName, userEmail }: AuthenticatedAppShellProps) {
   const router = useRouter();
   const pathname = usePathname();
-  const [mobileOpen, setMobileOpen] = useState(() => (typeof window !== 'undefined' ? window.innerWidth <= 900 : false));
+  const [mobileOpen, setMobileOpen] = useState(false);
 
   useEffect(() => {
-    if (typeof window !== 'undefined' && window.innerWidth <= 900) {
-      setMobileOpen(true);
+    if (typeof window !== 'undefined') {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setMobileOpen(window.innerWidth <= 900);
     }
   }, [pathname]);
 
@@ -154,14 +155,14 @@ export function AuthenticatedAppShell({ children, businessName, userEmail }: Aut
           .opsfinance-mobile-toggle { display: none !important; }
         }
       `}</style>
-      <div style={{ display: 'flex', minHeight: '100vh', background: '#f8fafc', color: '#0f172a', fontFamily: 'Arial, sans-serif' }}>
+      <div className="opsfinance-app-shell" style={{ display: 'flex', minHeight: '100vh', background: 'linear-gradient(180deg, #f4f0ff 0%, #fff9fb 100%)', color: '#0f172a', fontFamily: 'Arial, sans-serif' }}>
         <aside
           className="opsfinance-sidebar"
           style={{
             width: 280,
             flexShrink: 0,
-            background: '#fff',
-            borderRight: '1px solid #e2e8f0',
+            background: 'linear-gradient(180deg, rgba(255,255,255,0.98), rgba(255, 244, 249, 0.98))',
+            borderRight: '1px solid rgba(111,108,165,0.15)',
             padding: '1.25rem 1rem',
             display: 'flex',
             flexDirection: 'column',
@@ -169,29 +170,30 @@ export function AuthenticatedAppShell({ children, businessName, userEmail }: Aut
             position: 'sticky',
             top: 0,
             height: '100vh',
+            boxShadow: 'inset -1px 0 0 rgba(111,108,165,0.05)',
           }}
         >
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.5rem' }}>
             <div>
-              <div style={{ fontSize: 11, letterSpacing: '0.08em', fontWeight: 800, color: '#64748b', textTransform: 'uppercase' }}>OpsFinance</div>
-              <div style={{ fontSize: 18, fontWeight: 800 }}>Dashboard</div>
+              <div style={{ fontSize: 11, letterSpacing: '0.08em', fontWeight: 800, color: '#6a5bd8', textTransform: 'uppercase' }}>OpsFinance</div>
+              <div style={{ fontSize: 18, fontWeight: 800, color: '#1d1b3d' }}>Dashboard</div>
             </div>
           </div>
 
-          <div style={{ background: '#ecfeff', border: '1px solid #a5f3fc', borderRadius: 12, padding: '0.7rem 0.8rem', fontSize: 13 }}>
-            <div style={{ color: '#0f172a', fontWeight: 700 }}>Current business</div>
-            <div style={{ color: '#0f172a', marginTop: 4 }}>{businessName ?? 'No active business'}</div>
+          <div style={{ background: 'linear-gradient(135deg, rgba(210, 240, 255, 0.8), rgba(243, 220, 255, 0.8))', border: '1px solid rgba(99,90,170,0.15)', borderRadius: 16, padding: '0.75rem 0.8rem', fontSize: 13 }}>
+            <div style={{ color: '#1f2344', fontWeight: 700 }}>Current business</div>
+            <div style={{ color: '#1d1b3d', marginTop: 4, fontWeight: 700 }}>{businessName ?? 'No active business'}</div>
           </div>
 
           <NavigationList />
 
           {userEmail ? (
-            <div style={{ marginTop: 'auto', color: '#475569', fontSize: 12, wordBreak: 'break-word' }}>
+            <div style={{ marginTop: 'auto', color: '#4d4d6b', fontSize: 12, wordBreak: 'break-word', fontWeight: 700 }}>
               {userEmail}
             </div>
           ) : null}
 
-          <button type="button" onClick={signOut} style={{ background: '#0f172a', color: '#fff', border: 'none', borderRadius: 10, padding: '0.7rem 0.9rem', fontWeight: 700, cursor: 'pointer' }}>
+          <button type="button" onClick={signOut} className="opsfinance-primary-button" style={{ width: '100%' }}>
             Sign out
           </button>
         </aside>
@@ -204,11 +206,12 @@ export function AuthenticatedAppShell({ children, businessName, userEmail }: Aut
               justifyContent: 'space-between',
               gap: '1rem',
               padding: '1rem 1.25rem',
-              background: '#fff',
-              borderBottom: '1px solid #e2e8f0',
+              background: 'rgba(255,255,255,0.82)',
+              borderBottom: '1px solid rgba(111,108,165,0.12)',
               position: 'sticky',
               top: 0,
               zIndex: 2,
+              backdropFilter: 'blur(12px)',
             }}
           >
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
@@ -219,31 +222,31 @@ export function AuthenticatedAppShell({ children, businessName, userEmail }: Aut
                 aria-expanded={mobileOpen}
                 aria-controls="opsfinance-mobile-nav"
                 aria-label="Toggle navigation"
-                style={{ background: '#0f172a', color: '#fff', border: 'none', borderRadius: 10, padding: '0.55rem 0.7rem', fontWeight: 700 }}
+                style={{ background: 'linear-gradient(135deg, #ff7aa5, #a56aff)', color: '#fff', border: 'none', borderRadius: 12, padding: '0.55rem 0.7rem', fontWeight: 700 }}
               >
                 ☰
               </button>
               <div>
-                <div style={{ fontSize: 11, letterSpacing: '0.08em', color: '#64748b', fontWeight: 800, textTransform: 'uppercase' }}>OpsFinance</div>
-                <div style={{ fontWeight: 700, fontSize: 20 }}>Authenticated workspace</div>
+                <div style={{ fontSize: 11, letterSpacing: '0.08em', color: '#6a5bd8', fontWeight: 800, textTransform: 'uppercase' }}>OpsFinance</div>
+                <div style={{ fontWeight: 700, fontSize: 20, color: '#1d1b3d' }}>Authenticated workspace</div>
               </div>
             </div>
 
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-              <div style={{ color: '#475569', fontSize: 13, fontWeight: 600 }}>{businessName ?? 'No active business'}</div>
-              <button type="button" onClick={signOut} style={{ background: '#0f172a', color: '#fff', border: 'none', borderRadius: 10, padding: '0.55rem 0.8rem', fontWeight: 700, cursor: 'pointer' }}>
+              <div style={{ color: '#4d4d6b', fontSize: 13, fontWeight: 700 }}>{businessName ?? 'No active business'}</div>
+              <button type="button" onClick={signOut} className="opsfinance-secondary-button">
                 Sign out
               </button>
             </div>
           </header>
 
           {mobileOpen ? (
-            <div id="opsfinance-mobile-nav" style={{ background: '#fff', borderBottom: '1px solid #e2e8f0', padding: '1rem' }}>
+            <div id="opsfinance-mobile-nav" style={{ background: 'rgba(255,255,255,0.8)', borderBottom: '1px solid rgba(111,108,165,0.12)', padding: '1rem' }}>
               <NavigationList isMobile onNavigate={() => setMobileOpen(false)} />
             </div>
           ) : null}
 
-          <main style={{ padding: '1.5rem 1rem 2rem' }}>{children}</main>
+          <main className="opsfinance-workflow-panel" style={{ padding: '1.5rem 1rem 2rem' }}>{children}</main>
         </div>
       </div>
     </>

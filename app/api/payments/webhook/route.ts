@@ -3,6 +3,8 @@ import { NextResponse } from 'next/server';
 import { createSupabaseAdminClient, createSupabaseServerClient } from '@/lib/supabase/server';
 import { ToyyibPayProvider, resolveNextSubscriptionStatus } from '@/packages/payments';
 
+const SAFE_WEBHOOK_LOG_KEYS = ['status', 'order_id', 'refno', 'billcode', 'reason', 'amount'];
+
 function parseCallbackPayload(rawBody: string): Record<string, string> {
   if (!rawBody) {
     return {};
@@ -21,10 +23,99 @@ function parseCallbackPayload(rawBody: string): Record<string, string> {
   return Object.fromEntries(Array.from(params.entries()).map(([key, value]) => [key, value]));
 }
 
+function safeLogValue(value: string | null | undefined): string | null {
+  if (typeof value !== 'string') {
+    return null;
+  }
+
+  const trimmed = value.trim();
+  if (!trimmed) {
+    return null;
+  }
+
+  if (/^(?:[A-Za-z0-9_-]{6,})$/.test(trimmed) || /^TP[0-9A-Za-z_-]+$/.test(trimmed)) {
+    return trimmed;
+  }
+
+  if (/^[0-9]+$/.test(trimmed)) {
+    return trimmed;
+  }
+
+  return null;
+}
+
+function summarizeWebhookPayload(payload: Record<string, string>) {
+  const visibleFields = Object.keys(payload).filter((key) => !/secret|token|cookie|authorization|email|phone|pii|raw/i.test(key) && key !== 'hash' && key !== 'signature');
+  const safeFields = SAFE_WEBHOOK_LOG_KEYS.filter((key) => Object.prototype.hasOwnProperty.call(payload, key));
+  const status = safeLogValue(payload.status ?? payload.payment_status ?? null);
+  const billcode = safeLogValue(payload.billcode ?? payload.billCode ?? null);
+  const refno = safeLogValue(payload.refno ?? payload.reference ?? payload.order_id ?? null);
+  const amount = safeLogValue(payload.amount ?? payload.billpaymentamount ?? payload.billpaymentAmount ?? null);
+
+  return {
+    parsed_field_names: visibleFields,
+    safe_fields: safeFields,
+    status: status ?? null,
+    billcode: billcode ?? null,
+    refno: refno ?? null,
+    amount: amount ?? null,
+    signature_present: Boolean(payload.hash || payload.signature || payload['x-signature'] || payload['x-toyyibpay-signature']),
+  };
+}
+
+function logWebhookLifecycle(stage: string, details: Record<string, unknown>) {
+  const payload = {
+    timestamp: new Date().toISOString(),
+    stage,
+    ...details,
+  };
+
+  console.info(`[toyyibpay-webhook] ${stage}`, JSON.stringify(payload));
+}
+
+function createErrorResponse(status: number, message: string, code: string, meta: Record<string, unknown> = {}) {
+  logWebhookLifecycle('webhook_response', {
+    http_status: status,
+    error_category: code,
+    final_http_status: status,
+    ...meta,
+  });
+
+  return NextResponse.json({ ok: false, error: message, code }, { status });
+}
+
+function createDbFailureResponse(code: string, meta: Record<string, unknown> = {}) {
+  return createErrorResponse(500, 'Webhook processing failed. Please try again later.', code, {
+    persistence_result: 'db_failure',
+    ...meta,
+  });
+}
+
 export async function POST(request: Request) {
+  const startedAt = Date.now();
+  const contentType = request.headers.get('content-type') ?? 'unknown';
   const rawBody = await request.text();
   const parsedPayload = parseCallbackPayload(rawBody);
   const signature = request.headers.get('x-signature') ?? request.headers.get('x-toyyibpay-signature') ?? parsedPayload.hash ?? null;
+  const summary = summarizeWebhookPayload(parsedPayload);
+
+  logWebhookLifecycle('request_received', {
+    content_type: contentType,
+    payload_size: rawBody.length,
+    ...summary,
+  });
+
+  if (!rawBody.trim()) {
+    logWebhookLifecycle('request_validation_failed', {
+      validation_result: 'malformed',
+      reason: 'empty_body',
+      duration_ms: Date.now() - startedAt,
+    });
+    return createErrorResponse(400, 'Malformed callback payload.', 'malformed_callback', {
+      validation_result: 'malformed',
+      duration_ms: Date.now() - startedAt,
+    });
+  }
 
   const provider = new ToyyibPayProvider({
     mode: process.env.TOYYIBPAY_MODE === 'live' ? 'live' : 'sandbox',
@@ -34,12 +125,30 @@ export async function POST(request: Request) {
   });
 
   if (!provider.verifyWebhookSignature(rawBody, signature)) {
-    return NextResponse.json({ error: 'Invalid webhook signature.' }, { status: 400 });
+    logWebhookLifecycle('signature_validation_failed', {
+      validation_result: 'invalid_signature',
+      signature_present: Boolean(signature),
+      duration_ms: Date.now() - startedAt,
+    });
+    return createErrorResponse(400, 'Invalid webhook signature.', 'invalid_signature', {
+      validation_result: 'invalid_signature',
+      duration_ms: Date.now() - startedAt,
+    });
   }
 
   const event = provider.parseWebhookEvent(parsedPayload);
   const admin = createSupabaseAdminClient();
-  const supabase = createSupabaseServerClient();
+  const supabase = await createSupabaseServerClient();
+
+  logWebhookLifecycle('signature_validation_passed', {
+    validation_result: 'valid',
+    provider: event.provider,
+    event_id: event.eventId,
+    status: summary.status,
+    billcode: summary.billcode,
+    refno: summary.refno,
+    duration_ms: Date.now() - startedAt,
+  });
 
   const { data: existingPayment, error: lookupError } = await admin
     .from('subscription_payments')
@@ -48,14 +157,34 @@ export async function POST(request: Request) {
     .maybeSingle();
 
   if (lookupError) {
-    return NextResponse.json({ error: lookupError.message }, { status: 400 });
+    return createDbFailureResponse('db_lookup_failed', {
+      validation_result: 'valid',
+      duration_ms: Date.now() - startedAt,
+    });
   }
 
   const paymentStatus = event.status === 'PAID' ? 'PAID' : event.status === 'FAILED' ? 'FAILED' : event.status;
 
   if (existingPayment) {
     if (existingPayment.webhook_event_id === event.eventId) {
-      return NextResponse.json({ ok: true, idempotent: true, payment: existingPayment });
+      logWebhookLifecycle('duplicate_callback', {
+        validation_result: 'valid',
+        persistence_result: 'duplicate',
+        http_status: 200,
+        provider: event.provider,
+        event_id: event.eventId,
+        duration_ms: Date.now() - startedAt,
+      });
+      logWebhookLifecycle('response_sent', {
+        validation_result: 'valid',
+        persistence_result: 'duplicate',
+        http_status: 200,
+        final_http_status: 200,
+        provider: event.provider,
+        event_id: event.eventId,
+        duration_ms: Date.now() - startedAt,
+      });
+      return NextResponse.json({ ok: true, idempotent: true, code: 'duplicate_callback', payment: existingPayment }, { status: 200 });
     }
 
     const { error: updateError } = await admin
@@ -76,37 +205,25 @@ export async function POST(request: Request) {
       .eq('id', existingPayment.id);
 
     if (updateError) {
-      return NextResponse.json({ error: updateError.message }, { status: 400 });
+      return createDbFailureResponse('db_update_failed', {
+        validation_result: 'valid',
+        duration_ms: Date.now() - startedAt,
+      });
     }
   } else {
-    const { data: createdPayment, error: insertError } = await admin
-      .from('subscription_payments')
-      .insert({
-        business_id: event.businessId || null,
-        subscription_id: event.subscriptionId || null,
-        provider: 'TOYYIBPAY',
-        provider_payment_id: event.eventId,
-        provider_reference: event.reference,
-        webhook_event_id: event.eventId,
-        amount: Number(event.amount || '29.00'),
-        currency: event.currency || 'MYR',
-        status: paymentStatus,
-        failure_reason: event.failureReason ?? null,
-        metadata: {
-          provider: event.provider,
-          raw_event: parsedPayload,
-        },
-      })
-      .select('*')
-      .single();
-
-    if (insertError) {
-      return NextResponse.json({ error: insertError.message }, { status: 400 });
-    }
-
-    if (!createdPayment?.subscription_id) {
-      return NextResponse.json({ ok: true, idempotent: false, payment: createdPayment ?? null });
-    }
+    logWebhookLifecycle('payment_mapping_failed', {
+      validation_result: 'valid',
+      persistence_result: 'unmatched_callback',
+      http_status: 422,
+      final_http_status: 422,
+      provider: event.provider,
+      event_id: event.eventId,
+      duration_ms: Date.now() - startedAt,
+    });
+    return createErrorResponse(422, 'Payment callback could not be matched to an initiated payment.', 'unmatched_callback', {
+      validation_result: 'valid',
+      duration_ms: Date.now() - startedAt,
+    });
   }
 
   const { data: subscriptionRow } = await admin
@@ -116,7 +233,16 @@ export async function POST(request: Request) {
     .maybeSingle();
 
   if (!subscriptionRow) {
-    return NextResponse.json({ ok: true, accepted: true, ignored: true });
+    logWebhookLifecycle('subscription_mapping_failed', {
+      validation_result: 'valid',
+      persistence_result: 'payment_recorded_unknown_subscription',
+      http_status: 200,
+      final_http_status: 200,
+      provider: event.provider,
+      payment_reference: event.reference,
+      duration_ms: Date.now() - startedAt,
+    });
+    return NextResponse.json({ ok: true, accepted: true, ignored: true, code: 'unknown_subscription' }, { status: 200 });
   }
 
   const nextStatus = resolveNextSubscriptionStatus(subscriptionRow.status, paymentStatus);
@@ -143,7 +269,10 @@ export async function POST(request: Request) {
     .eq('id', subscriptionRow.id);
 
   if (subscriptionUpdateError) {
-    return NextResponse.json({ error: subscriptionUpdateError.message }, { status: 400 });
+    return createDbFailureResponse('db_subscription_update_failed', {
+      validation_result: 'valid',
+      duration_ms: Date.now() - startedAt,
+    });
   }
 
   const { error: memberError } = await supabase
@@ -153,15 +282,42 @@ export async function POST(request: Request) {
     .limit(1);
 
   if (memberError) {
-    return NextResponse.json({ error: memberError.message }, { status: 400 });
+    return createDbFailureResponse('db_business_members_lookup_failed', {
+      validation_result: 'valid',
+      duration_ms: Date.now() - startedAt,
+    });
   }
 
-  return NextResponse.json({
+  const responseBody = {
     ok: true,
     provider: event.provider,
     eventId: event.eventId,
     paymentStatus,
     subscriptionStatus: updatePayload.status,
-    idempotent: existingPayment ? true : false,
+    idempotent: Boolean(existingPayment),
+  };
+
+  logWebhookLifecycle('webhook_completed', {
+    validation_result: 'valid',
+    persistence_result: 'success',
+    http_status: 200,
+    final_http_status: 200,
+    provider: event.provider,
+    event_id: event.eventId,
+    payment_status: paymentStatus,
+    subscription_status: updatePayload.status,
+    duration_ms: Date.now() - startedAt,
   });
+
+  logWebhookLifecycle('response_sent', {
+    validation_result: 'valid',
+    persistence_result: 'success',
+    http_status: 200,
+    final_http_status: 200,
+    provider: event.provider,
+    event_id: event.eventId,
+    duration_ms: Date.now() - startedAt,
+  });
+
+  return NextResponse.json(responseBody, { status: 200 });
 }

@@ -7,6 +7,7 @@ import type { PaymentRecord, SubscriptionRecord } from '../packages/subscription
 
 const BUSINESS_ID = 'business-a';
 const ACTOR_ID = 'user-a';
+const FIXED_SUBSCRIPTION_NOW = new Date('2026-10-17T00:00:00.000Z').getTime();
 
 function formatDate(value?: string | null): string {
   if (!value) return '—';
@@ -92,12 +93,12 @@ function getActionButtons(service: SubscriptionService, subscription: Subscripti
 }
 
 export function SubscriptionSettings() {
-  const service = useMemo(() => new SubscriptionService(), []);
+  const service = useMemo(() => new SubscriptionService({ now: () => FIXED_SUBSCRIPTION_NOW }), []);
   const [subscription, setSubscription] = useState<SubscriptionRecord>(() => {
     const record = service.registerBusiness(BUSINESS_ID, ACTOR_ID);
     const paymentHistory = service.getPaymentHistory(record.id);
     if (paymentHistory.length === 0) {
-      const payment = service.initiatePayment(record.id, 'INV-SUB-001', '29.00', 'MYR', ACTOR_ID, 'evt-sub-demo');
+      service.initiatePayment(record.id, 'INV-SUB-001', '29.00', 'MYR', ACTOR_ID, 'evt-sub-demo');
       service.recordPaymentStatus(record.id, 'evt-sub-demo', 'PAID', ACTOR_ID);
       return service.getBusinessSubscription(BUSINESS_ID);
     }

@@ -4,7 +4,7 @@ import { createSupabaseServerClient } from '@/lib/supabase/server';
 import { ToyyibPayProvider } from '@/packages/payments';
 
 export async function POST(request: Request) {
-  const supabase = createSupabaseServerClient();
+  const supabase = await createSupabaseServerClient();
   const {
     data: { user },
     error: authError,
@@ -58,18 +58,20 @@ export async function POST(request: Request) {
     baseUrl: process.env.TOYYIBPAY_BASE_URL ?? 'https://toyyibpay.com',
   });
 
-  const checkout = provider.createCheckoutSession({
+  const checkout = await provider.createCheckoutSession({
     businessId,
     subscriptionId: subscriptionRow.id,
     amount: '29.00',
     currency: 'MYR',
     customerEmail: user.email ?? undefined,
     customerName: String(user.user_metadata?.full_name ?? user.email ?? 'Customer'),
+    customerPhone: String(user.user_metadata?.phone ?? '60123456789'),
     reference: String(payload.reference ?? `opsfinance-${subscriptionRow.id}`),
     metadata: {
       business_id: businessId,
       subscription_id: subscriptionRow.id,
       callback_url: process.env.TOYYIBPAY_CALLBACK_URL ?? `${process.env.NEXT_PUBLIC_APP_URL ?? 'https://app.myops.com.my'}/api/payments/webhook`,
+      return_url: `${process.env.NEXT_PUBLIC_APP_URL ?? 'https://app.myops.com.my'}/settings/subscription`,
     },
   });
 

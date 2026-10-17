@@ -73,6 +73,7 @@ export function FinancialAccountsWorkflow({ businessId, businessContextError }: 
   }, [businessId]);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     void loadAccounts();
   }, [loadAccounts]);
 
@@ -142,8 +143,8 @@ export function FinancialAccountsWorkflow({ businessId, businessContextError }: 
 
   if (!businessId) {
     return (
-      <main style={{ minHeight: '100vh', background: '#f8fafc', color: '#0f172a', fontFamily: 'Arial, sans-serif', padding: '1.5rem 1rem 2.5rem' }}>
-        <div style={{ maxWidth: 960, margin: '0 auto', background: '#fff', border: '1px solid #e2e8f0', borderRadius: 18, padding: '1.5rem' }}>
+      <main className="opsfinance-workflow-panel" style={{ padding: '1.5rem 1rem 2.5rem' }}>
+        <div className="opsfinance-surface" style={{ maxWidth: 960, margin: '0 auto', padding: '1.5rem' }}>
           <h1 style={{ marginTop: 0 }}>Financial Accounts</h1>
           <p style={{ margin: 0, color: '#475569' }}>{businessContextError ?? 'No active business is available for this user.'}</p>
         </div>
@@ -152,22 +153,22 @@ export function FinancialAccountsWorkflow({ businessId, businessContextError }: 
   }
 
   return (
-    <main style={{ minHeight: '100vh', background: '#f8fafc', color: '#0f172a', fontFamily: 'Arial, sans-serif', padding: '1.5rem 1rem 2.5rem' }}>
-      <div style={{ maxWidth: 1280, margin: '0 auto', display: 'grid', gap: '1.25rem' }}>
-        <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '1rem', flexWrap: 'wrap' }}>
+    <main className="opsfinance-workflow-panel" style={{ padding: '1.5rem 1rem 2.5rem' }}>
+      <div className="opsfinance-workflow-inner" style={{ maxWidth: 1280 }}>
+        <header className="opsfinance-workflow-header">
           <div>
-            <p style={{ margin: 0, color: '#475569', letterSpacing: '0.08em', fontSize: 12, fontWeight: 700, textTransform: 'uppercase' }}>OpsFinance</p>
+            <p className="opsfinance-kicker">OpsFinance</p>
             <h1 style={{ margin: '0.35rem 0 0', fontSize: 'clamp(2rem, 4vw, 2.6rem)' }}>Financial Accounts</h1>
           </div>
-          <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap' }}>
-            <Link href="/accounts/chart" style={{ background: '#e2e8f0', color: '#0f172a', borderRadius: 10, padding: '0.7rem 1rem', fontWeight: 700 }}>Accounts</Link>
-            <button type="button" onClick={() => resetForm()} style={{ background: '#0f172a', color: '#fff', border: 'none', borderRadius: 10, padding: '0.7rem 1rem', fontWeight: 700 }}>New account</button>
+          <div className="opsfinance-action-row">
+            <Link href="/accounts/chart" className="opsfinance-secondary-button">Accounts</Link>
+            <button type="button" className="opsfinance-primary-button" onClick={() => resetForm()}>New account</button>
           </div>
         </header>
 
-        {businessContextError ? <div role="alert" style={{ background: '#fff1f2', border: '1px solid #fecdd3', borderRadius: 18, padding: '1rem' }}>{businessContextError}</div> : null}
+        {businessContextError ? <div role="alert" className="opsfinance-surface" style={{ background: '#fff1f2', border: '1px solid #fecdd3', padding: '1rem' }}>{businessContextError}</div> : null}
 
-        <section style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: 18, padding: '1rem', display: 'grid', gap: '0.8rem' }}>
+        <section className="opsfinance-surface" style={{ padding: '1rem', display: 'grid', gap: '0.8rem' }}>
           <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(150px, 1fr))', gap: '0.75rem' }}>
             <label style={{ display: 'grid', gap: '0.25rem' }}>Name<input value={form.name} onChange={(event) => setForm((current) => ({ ...current, name: event.target.value }))} /></label>
             <label style={{ display: 'grid', gap: '0.25rem' }}>Type<select value={form.type} onChange={(event) => setForm((current) => ({ ...current, type: event.target.value }))}><option value="BANK">BANK</option><option value="CASH">CASH</option><option value="E_WALLET">E_WALLET</option><option value="CREDIT_CARD">CREDIT_CARD</option><option value="LOAN">LOAN</option><option value="OTHER">OTHER</option></select></label>

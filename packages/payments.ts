@@ -1,4 +1,4 @@
-import { createHash } from 'node:crypto';
+import { createHash, timingSafeEqual } from 'node:crypto';
 
 export type PaymentProviderName = 'TOYYIBPAY' | 'CURLEC';
 export type PaymentProviderMode = 'sandbox' | 'live';
@@ -14,6 +14,18 @@ export interface PaymentProviderResponse {
   mode: PaymentProviderMode;
   status: 'INITIATED' | 'PENDING';
   metadata: Record<string, string>;
+}
+
+function sanitizeToyyibPayError(error: unknown): string {
+  const value = error instanceof Error ? error.message : String(error ?? '');
+  const sanitized = value
+    .replace(/(userSecretKey|secret)[^A-Za-z0-9_-]*[:=]?[A-Za-z0-9_-]+/gi, '$1=[REDACTED]')
+    .replace(/(TOYYIBPAY_SECRET_KEY=)[^\s]+/gi, '$1[REDACTED]')
+    .replace(/sandbox-toyyibpay-secret/gi, '[REDACTED]')
+    .replace(/[\r\n]+/g, ' ')
+    .trim();
+
+  return sanitized || 'ToyyibPay request failed.';
 }
 
 export interface PaymentWebhookEvent {
@@ -47,9 +59,10 @@ export abstract class PaymentProvider {
     currency?: string;
     customerEmail?: string;
     customerName?: string;
+    customerPhone?: string;
     reference?: string;
     metadata?: Record<string, string>;
-  }): PaymentProviderResponse;
+  }): Promise<PaymentProviderResponse>;
 
   public abstract verifyWebhookSignature(rawBody: string, signatureHeader?: string | null): boolean;
 
@@ -71,16 +84,17 @@ export class ToyyibPayProvider extends PaymentProvider {
     this.baseUrl = options.baseUrl ?? process.env.TOYYIBPAY_BASE_URL ?? 'https://toyyibpay.com';
   }
 
-  createCheckoutSession(input: {
+  async createCheckoutSession(input: {
     businessId: string;
     subscriptionId: string;
     amount: string;
     currency?: string;
     customerEmail?: string;
     customerName?: string;
+    customerPhone?: string;
     reference?: string;
     metadata?: Record<string, string>;
-  }): PaymentProviderResponse {
+  }): Promise<PaymentProviderResponse> {
     if (this.mode === 'live' && !this.secret) {
       throw new Error('ToyyibPay live credentials are not configured. Payment onboarding required.');
     }
@@ -89,11 +103,63 @@ export class ToyyibPayProvider extends PaymentProvider {
     const normalizedCurrency = (input.currency || 'MYR').toUpperCase();
     const reference = input.reference || `OPSFINANCE-${input.businessId}-${input.subscriptionId}-${Date.now()}`;
     const checkoutId = `toyyibpay_${Date.now()}_${Math.random().toString(16).slice(2, 9)}`;
-    const billCode = reference.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 24) || checkoutId;
+    const callbackUrl = input.metadata?.callback_url ?? process.env.TOYYIBPAY_CALLBACK_URL ?? `${process.env.NEXT_PUBLIC_APP_URL ?? 'https://app.myops.com.my'}/api/payments/webhook`;
+    const returnUrl = input.metadata?.return_url ?? process.env.TOYYIBPAY_RETURN_URL ?? `${process.env.NEXT_PUBLIC_APP_URL ?? 'https://app.myops.com.my'}/settings/subscription`;
+    const billAmountCents = Math.round(Number.parseFloat(normalizedAmount) * 100);
+
+    if (!Number.isFinite(billAmountCents) || billAmountCents <= 0) {
+      throw new Error('ToyyibPay bill amount must be greater than zero.');
+    }
+
+    const payload = new URLSearchParams({
+      userSecretKey: this.secret,
+      categoryCode: this.categoryCode,
+      billName: 'OpsFinance Subscription',
+      billDescription: `OpsFinance Subscription - ${reference}`,
+      billPriceSetting: '1',
+      billPayorInfo: '1',
+      billAmount: String(billAmountCents),
+      billReturnUrl: returnUrl,
+      billCallbackUrl: callbackUrl,
+      billExternalReferenceNo: reference,
+    });
+
+    payload.set('billTo', input.customerName || 'OpsFinance Customer');
+    if (input.customerEmail) {
+      payload.set('billEmail', input.customerEmail);
+    }
+    payload.set('billPhone', (input.customerPhone ?? '60123456789').replace(/\D/g, '').slice(0, 15) || '60123456789');
+
+    let response: Response;
+
+    try {
+      response = await fetch(`${this.baseUrl}/index.php/api/createBill`, {
+        method: 'POST',
+        headers: {
+          Accept: 'application/json',
+          'Content-Type': 'application/x-www-form-urlencoded; charset=UTF-8',
+        },
+        body: payload.toString(),
+      });
+    } catch (error) {
+      throw new Error(sanitizeToyyibPayError(error));
+    }
+
+    const rawText = await response.text();
+    const parsedResponse = this.parseCreateBillResponse(rawText);
+    const billCode = this.extractBillCode(parsedResponse);
+
+    if (!response.ok || !billCode) {
+      const message = this.extractCreateBillError(parsedResponse, rawText) ?? 'ToyyibPay bill creation failed.';
+      throw new Error(sanitizeToyyibPayError(message));
+    }
+
     const metadata = {
       business_id: input.businessId,
       subscription_id: input.subscriptionId,
       bill_code: billCode,
+      callback_url: callbackUrl,
+      return_url: returnUrl,
       ...(input.metadata ?? {}),
     };
 
@@ -108,6 +174,115 @@ export class ToyyibPayProvider extends PaymentProvider {
       status: 'INITIATED',
       metadata,
     };
+  }
+
+  private parseCreateBillResponse(rawText: string): unknown {
+    if (!rawText) {
+      return null;
+    }
+
+    try {
+      return JSON.parse(rawText);
+    } catch {
+      // Some ToyyibPay createBill responses are plain text, e.g. an ID or a single response row.
+      return rawText;
+    }
+  }
+
+  private extractBillCode(response: unknown): string | null {
+    if (!response) {
+      return null;
+    }
+
+    if (typeof response === 'string') {
+      const trimmed = response.trim();
+      if (!trimmed) {
+        return null;
+      }
+
+      const normalized = trimmed.toLowerCase();
+      if (['error', 'failed', 'success', 'ok', 'null', 'undefined'].includes(normalized) || normalized.includes('billto') || normalized.includes('parameter is empty')) {
+        return null;
+      }
+
+      if (/^[A-Za-z0-9_-]+$/.test(trimmed) && trimmed.length >= 6) {
+        return trimmed;
+      }
+
+      return null;
+    }
+
+    if (Array.isArray(response)) {
+      for (const item of response) {
+        const extracted = this.extractBillCode(item);
+        if (extracted) {
+          return extracted;
+        }
+      }
+      return null;
+    }
+
+    if (typeof response === 'object') {
+      const record = response as Record<string, unknown>;
+      for (const key of ['billCode', 'BillCode', 'billcode', 'code', 'id']) {
+        const value = record[key];
+        if (typeof value === 'string' && value.trim()) {
+          return value.trim();
+        }
+      }
+
+      for (const nestedValue of Object.values(record)) {
+        const extracted = this.extractBillCode(nestedValue);
+        if (extracted) {
+          return extracted;
+        }
+      }
+    }
+
+    return null;
+  }
+
+  private extractCreateBillError(response: unknown, fallback: string): string | null {
+    if (!response) {
+      return fallback || null;
+    }
+
+    if (typeof response === 'string') {
+      const trimmed = response.trim();
+      if (trimmed && /^\d+$/.test(trimmed)) {
+        return null;
+      }
+      return trimmed || null;
+    }
+
+    if (Array.isArray(response)) {
+      for (const item of response) {
+        const nested = this.extractCreateBillError(item, '');
+        if (nested) {
+          return nested;
+        }
+      }
+      return null;
+    }
+
+    if (typeof response === 'object') {
+      const record = response as Record<string, unknown>;
+      for (const key of ['message', 'error', 'status', 'code', 'detail', 'description']) {
+        const value = record[key];
+        if (typeof value === 'string' && value.trim()) {
+          return value.trim();
+        }
+      }
+
+      for (const nestedValue of Object.values(record)) {
+        const nested = this.extractCreateBillError(nestedValue, '');
+        if (nested) {
+          return nested;
+        }
+      }
+    }
+
+    return null;
   }
 
   verifyWebhookSignature(rawBody: string, signatureHeader?: string | null): boolean {
@@ -126,7 +301,11 @@ export class ToyyibPayProvider extends PaymentProvider {
     const orderId = String(parsed.order_id ?? parsed.orderId ?? '');
     const refNo = String(parsed.refno ?? parsed.refNo ?? parsed.reference ?? '');
     const expected = createHash('md5').update(`${this.secret}${status}${orderId}${refNo}ok`).digest('hex');
-    return payloadHash.toLowerCase() === expected.toLowerCase() || payloadHash.toLowerCase() === `md5(${expected})`;
+    const normalizedPayloadHash = payloadHash.toLowerCase().replace(/^md5\((.*)\)$/, '$1');
+    const expectedHash = Buffer.from(expected, 'utf8');
+    const receivedHash = Buffer.from(normalizedPayloadHash, 'utf8');
+
+    return receivedHash.length === expectedHash.length && timingSafeEqual(receivedHash, expectedHash);
   }
 
   parseWebhookEvent(payload: unknown): PaymentWebhookEvent {

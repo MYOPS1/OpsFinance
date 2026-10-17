@@ -6,7 +6,7 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint",
+    "lint": "eslint . --ext .js,.jsx,.ts,.tsx",
     "typecheck": "tsc --noEmit",
     "test": "vitest run --environment jsdom",
     "test:watch": "vitest --environment jsdom",
@@ -16,22 +16,27 @@
   "dependencies": {
     "@supabase/ssr": "^0.6.1",
     "@supabase/supabase-js": "^2.45.4",
-    "next": "14.2.15",
-    "react": "18.3.1",
-    "react-dom": "18.3.1"
+    "next": "16.4.0",
+    "react": "19.3.0",
+    "react-dom": "19.3.0"
   },
   "devDependencies": {
+    "@eslint/eslintrc": "3.3.0",
+    "@eslint/js": "9.29.0",
     "@playwright/test": "^1.49.1",
     "@testing-library/jest-dom": "^6.6.1",
     "@testing-library/react": "^16.0.1",
-    "@types/node": "^20.14.12",
-    "@types/react": "^18.3.3",
-    "@types/react-dom": "^18.3.0",
-    "eslint": "^8.57.0",
-    "eslint-config-next": "14.2.15",
+    "@types/node": "^24.19.2",
+    "@types/react": "19.3.0",
+    "@types/react-dom": "19.3.0",
+    "brace-expansion": "^1.1.21",
+    "eslint": "9.39.5",
+    "eslint-config-next": "16.4.0",
     "jsdom": "^24.1.0",
     "playwright": "^1.49.1",
+    "source-map-js": "^1.2.2",
     "typescript": "^5.5.4",
-    "vitest": "^2.1.1"
+    "vite": "^7.3.7",
+    "vitest": "^5.0.4"
   }
 }

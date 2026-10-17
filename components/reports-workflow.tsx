@@ -141,6 +141,7 @@ export function ReportsWorkflow({ businessId, businessContextError, defaultRepor
 
     if (accounts.length > 0) {
       const statementReport = service.getAccountStatement({ businessId, accountId: selectedAccountId, dateFrom, dateTo });
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setStatement(statementReport);
     }
   }, [selectedAccountId, businessId, dateFrom, dateTo, accounts]);
@@ -158,31 +159,20 @@ export function ReportsWorkflow({ businessId, businessContextError, defaultRepor
 
   if (!businessId) {
     return (
-      <main style={{ padding: '2rem', fontFamily: 'Arial, sans-serif', color: '#0f172a', background: '#f8fafc', minHeight: '100vh' }}>
-        <div style={{ maxWidth: 960, margin: '0 auto', background: '#fff', border: '1px solid #e2e8f0', borderRadius: 18, padding: '1.5rem', display: 'grid', gap: '1rem' }}>
+      <main className="opsfinance-workflow-panel" style={{ padding: '2rem' }}>
+        <div className="opsfinance-surface" style={{ maxWidth: 960, margin: '0 auto', padding: '1.5rem', display: 'grid', gap: '1rem' }}>
           <h1 style={{ margin: 0 }}>Financial Reports</h1>
-          <div style={{ display: 'flex', gap: '0.6rem', flexWrap: 'wrap' }}>
+          <div className="opsfinance-action-row">
             {Object.entries(buttonLabels).map(([key, label]) => (
-              <button key={key} type="button" style={{ border: '1px solid #cbd5e1', borderRadius: 10, background: '#f8fafc', color: '#0f172a', padding: '0.65rem 0.8rem', fontWeight: 700, cursor: 'pointer' }}>
+              <button key={key} type="button" className="opsfinance-secondary-button" style={{ minHeight: '40px' }}>
                 {label}
               </button>
             ))}
           </div>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '0.75rem' }}>
-            <label style={{ display: 'grid', gap: '0.25rem' }}>
-              <span>Start date</span>
-              <input type="date" value={dateFrom} onChange={(event) => setDateFrom(event.target.value)} />
-            </label>
-            <label style={{ display: 'grid', gap: '0.25rem' }}>
-              <span>End date</span>
-              <input type="date" value={dateTo} onChange={(event) => setDateTo(event.target.value)} />
-            </label>
-            <label style={{ display: 'grid', gap: '0.25rem' }}>
-              <span>Account</span>
-              <select value={selectedAccountId} onChange={(event) => setSelectedAccountId(event.target.value)}>
-                <option value="">None selected</option>
-              </select>
-            </label>
+          <div className="opsfinance-form-grid">
+            <label><span>Start date</span><input type="date" value={dateFrom} onChange={(event) => setDateFrom(event.target.value)} /></label>
+            <label><span>End date</span><input type="date" value={dateTo} onChange={(event) => setDateTo(event.target.value)} /></label>
+            <label><span>Account</span><select value={selectedAccountId} onChange={(event) => setSelectedAccountId(event.target.value)}><option value="">None selected</option></select></label>
           </div>
           <p style={{ margin: 0, color: '#475569' }}>{businessContextError ?? 'No active business for reports.'}</p>
         </div>

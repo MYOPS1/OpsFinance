@@ -66,6 +66,7 @@ export function TransactionWorkflow({ businessId, defaultType = 'MONEY_IN' }: Tr
   }, [businessId]);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     loadData();
   }, [loadData]);
 
@@ -104,18 +105,18 @@ export function TransactionWorkflow({ businessId, defaultType = 'MONEY_IN' }: Tr
   };
 
   if (!businessId) {
-    return <main style={{ padding: '2rem', fontFamily: 'Arial, sans-serif' }}><div style={{ maxWidth: 900, margin: '0 auto', background: '#fff', border: '1px solid #e2e8f0', borderRadius: 18, padding: '1.5rem' }}>No active business available for transaction posting.</div></main>;
+    return <main className="opsfinance-workflow-panel" style={{ padding: '2rem' }}><div className="opsfinance-surface" style={{ maxWidth: 900, margin: '0 auto', padding: '1.5rem' }}>No active business available for transaction posting.</div></main>;
   }
 
   return (
-    <main style={{ minHeight: '100vh', background: '#f8fafc', padding: '1.5rem 1rem 2rem', fontFamily: 'Arial, sans-serif', color: '#0f172a' }}>
-      <div style={{ maxWidth: 1200, margin: '0 auto', display: 'grid', gap: '1rem' }}>
-        <h1>Transactions</h1>
-        <div style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: 18, padding: '0.75rem 1rem' }}>
+    <main className="opsfinance-workflow-panel" style={{ padding: '1.5rem 1rem 2rem' }}>
+      <div className="opsfinance-workflow-inner" style={{ maxWidth: 1200 }}>
+        <div className="opsfinance-workflow-header"><p className="opsfinance-kicker">OpsFinance</p><h1>Transactions</h1></div>
+        <div className="opsfinance-surface" style={{ padding: '0.75rem 1rem' }}>
           <strong>All Transactions</strong>
         </div>
 
-        <section style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: 18, padding: '1rem', display: 'grid', gap: '0.8rem' }}>
+        <section className="opsfinance-surface" style={{ padding: '1rem', display: 'grid', gap: '0.8rem' }}>
           <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem' }}>
             {[
               { value: 'MONEY_IN', label: 'Money In' },
@@ -145,25 +146,25 @@ export function TransactionWorkflow({ businessId, defaultType = 'MONEY_IN' }: Tr
             })}
           </div>
 
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '0.75rem' }}>
-            <label style={{ display: 'grid', gap: '0.25rem' }}>Type<select value={form.type} onChange={(event) => setForm((current) => ({ ...current, type: event.target.value as TransactionFormState['type'] }))}><option value="MONEY_IN">Money In</option><option value="MONEY_OUT">Money Out</option><option value="TRANSFER">Transfer</option><option value="JOURNAL">Journal</option></select></label>
-            <label style={{ display: 'grid', gap: '0.25rem' }}>Date<input type="date" value={form.date} onChange={(event) => setForm((current) => ({ ...current, date: event.target.value }))} /></label>
-            <label style={{ display: 'grid', gap: '0.25rem' }}>Amount<input value={form.amount} onChange={(event) => setForm((current) => ({ ...current, amount: event.target.value }))} /></label>
+          <div className="opsfinance-form-grid">
+            <label>Type<select value={form.type} onChange={(event) => setForm((current) => ({ ...current, type: event.target.value as TransactionFormState['type'] }))}><option value="MONEY_IN">Money In</option><option value="MONEY_OUT">Money Out</option><option value="TRANSFER">Transfer</option><option value="JOURNAL">Journal</option></select></label>
+            <label>Date<input type="date" value={form.date} onChange={(event) => setForm((current) => ({ ...current, date: event.target.value }))} /></label>
+            <label>Amount<input value={form.amount} onChange={(event) => setForm((current) => ({ ...current, amount: event.target.value }))} /></label>
           </div>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '0.75rem' }}>
-            <label style={{ display: 'grid', gap: '0.25rem' }}>Financial account<select value={form.financial_account_id} onChange={(event) => setForm((current) => ({ ...current, financial_account_id: event.target.value }))}>{financialAccounts.map((account) => <option key={account.id} value={account.id}>{account.name}</option>)}</select></label>
-            <label style={{ display: 'grid', gap: '0.25rem' }}>Ledger account<select value={form.account_id} onChange={(event) => setForm((current) => ({ ...current, account_id: event.target.value }))}>{accounts.map((account) => <option key={account.id} value={account.id}>{account.name}</option>)}</select></label>
+          <div className="opsfinance-form-grid">
+            <label>Financial account<select value={form.financial_account_id} onChange={(event) => setForm((current) => ({ ...current, financial_account_id: event.target.value }))}>{financialAccounts.map((account) => <option key={account.id} value={account.id}>{account.name}</option>)}</select></label>
+            <label>Ledger account<select value={form.account_id} onChange={(event) => setForm((current) => ({ ...current, account_id: event.target.value }))}>{accounts.map((account) => <option key={account.id} value={account.id}>{account.name}</option>)}</select></label>
           </div>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '0.75rem' }}>
-            <label style={{ display: 'grid', gap: '0.25rem' }}>Description<input value={form.description} onChange={(event) => setForm((current) => ({ ...current, description: event.target.value }))} /></label>
-            <label style={{ display: 'grid', gap: '0.25rem' }}>Reference<input value={form.reference_no} onChange={(event) => setForm((current) => ({ ...current, reference_no: event.target.value }))} /></label>
+          <div className="opsfinance-form-grid">
+            <label>Description<input value={form.description} onChange={(event) => setForm((current) => ({ ...current, description: event.target.value }))} /></label>
+            <label>Reference<input value={form.reference_no} onChange={(event) => setForm((current) => ({ ...current, reference_no: event.target.value }))} /></label>
           </div>
-          <button type="button" onClick={handleCreate} style={{ width: 'fit-content', background: '#0f172a', color: '#fff', border: 'none', borderRadius: 10, padding: '0.7rem 1rem', fontWeight: 700, cursor: 'pointer' }}>Create posting</button>
+          <button type="button" className="opsfinance-primary-button" onClick={handleCreate}>Create posting</button>
         </section>
 
-        {error ? <div role="alert" style={{ background: '#fff1f2', border: '1px solid #fecdd3', borderRadius: 18, padding: '1rem' }}>{error}</div> : null}
+        {error ? <div role="alert" className="opsfinance-surface" style={{ background: '#fff1f2', border: '1px solid #fecdd3', padding: '1rem' }}>{error}</div> : null}
 
-        <section style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: 18, padding: '1rem' }}>
+        <section className="opsfinance-surface" style={{ padding: '1rem' }}>
           {loading ? <div>Loading transactions…</div> : (
             <table style={{ width: '100%', borderCollapse: 'collapse' }}>
               <thead>

@@ -58,7 +58,7 @@ test.describe(E2E_ENVIRONMENT, () => {
 
     await page.goto('/upload', { waitUntil: 'networkidle' });
     await expect(page.getByRole('heading', { name: 'Upload & Convert' })).toBeVisible();
-    await expect(page.getByText('Parse & review')).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Parse & review', exact: true })).toBeVisible();
 
     await page.goto('/reconciliation', { waitUntil: 'networkidle' });
     await expect(page.getByRole('heading', { name: 'Bank Reconciliation' })).toBeVisible();

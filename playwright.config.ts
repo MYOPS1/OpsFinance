@@ -1,5 +1,7 @@
 import { defineConfig, devices } from '@playwright/test';
 
+const PLAYWRIGHT_PORT = Number(process.env.PLAYWRIGHT_PORT ?? 3100);
+
 export default defineConfig({
   testDir: './tests/e2e',
   timeout: 30_000,
@@ -10,7 +12,7 @@ export default defineConfig({
   fullyParallel: false,
   reporter: [['list']],
   use: {
-    baseURL: process.env.PLAYWRIGHT_BASE_URL ?? 'http://127.0.0.1:3000',
+    baseURL: process.env.PLAYWRIGHT_BASE_URL ?? `http://127.0.0.1:${PLAYWRIGHT_PORT}`,
     trace: 'retain-on-failure',
     screenshot: 'only-on-failure',
     video: 'retain-on-failure',
@@ -23,9 +25,9 @@ export default defineConfig({
     { name: 'tablet', use: { ...devices['Galaxy Tab S4'] } },
   ],
   webServer: {
-    command: 'npm run dev',
-    url: 'http://127.0.0.1:3000',
-    reuseExistingServer: !process.env.CI,
+    command: `npm run dev -- --hostname 127.0.0.1 --port ${PLAYWRIGHT_PORT}`,
+    url: `http://127.0.0.1:${PLAYWRIGHT_PORT}`,
+    reuseExistingServer: false,
     timeout: 120_000,
   },
 });

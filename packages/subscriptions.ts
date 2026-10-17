@@ -183,9 +183,11 @@ export class SubscriptionService {
   private readonly auditTrail = new Map<string, BillingAuditEvent[]>();
   private readonly renewedPeriods = new Set<string>();
   private readonly config: BillingConfiguration;
+  private readonly now: () => number;
 
-  constructor(config: Partial<BillingConfiguration> = {}) {
+  constructor(config: Partial<BillingConfiguration> & { now?: () => number } = {}) {
     this.config = { ...DEFAULT_BILLING_CONFIGURATION, ...config };
+    this.now = config.now ?? Date.now;
   }
 
   getConfig(): BillingConfiguration {
@@ -213,7 +215,7 @@ export class SubscriptionService {
     }
 
     const endsAt = new Date(subscription.trialEndsAt).getTime();
-    return Number.isFinite(endsAt) && Date.now() < endsAt;
+    return Number.isFinite(endsAt) && this.now() < endsAt;
   }
 
   private syncSubscriptionLifecycle(subscription: SubscriptionRecord): void {
@@ -232,7 +234,7 @@ export class SubscriptionService {
 
     if (subscription.trialEndsAt && ['ACTIVE', 'TRIAL'].includes(subscription.status)) {
       const endsAt = new Date(subscription.trialEndsAt).getTime();
-      if (Number.isFinite(endsAt) && Date.now() >= endsAt) {
+      if (Number.isFinite(endsAt) && this.now() >= endsAt) {
         subscription.status = 'PAST_DUE';
         subscription.updatedAt = new Date().toISOString();
       }
@@ -265,7 +267,7 @@ export class SubscriptionService {
     const endsAt = subscription.trialEndsAt ?? null;
     const startedAt = subscription.trialStartedAt ?? null;
     const isActive = this.isTrialActiveRecord(subscription);
-    const daysRemaining = endsAt ? Math.max(0, Math.ceil((new Date(endsAt).getTime() - Date.now()) / 86400000)) : 0;
+    const daysRemaining = endsAt ? Math.max(0, Math.ceil((new Date(endsAt).getTime() - this.now()) / 86400000)) : 0;
 
     return {
       businessId,
@@ -291,7 +293,7 @@ export class SubscriptionService {
 
   private setAuditEvent(subscriptionId: string, businessId: string, actor: string, event: string, target: string, metadata: Record<string, string | number | boolean | null> = {}): void {
     const trail = this.auditTrail.get(subscriptionId) ?? [];
-    trail.push({ id: `billing-audit-${Date.now()}-${Math.random().toString(16).slice(2, 8)}`, businessId, actor, event, target, timestamp: new Date().toISOString(), metadata });
+    trail.push({ id: `billing-audit-${this.now()}-${Math.random().toString(16).slice(2, 8)}`, businessId, actor, event, target, timestamp: new Date().toISOString(), metadata });
     this.auditTrail.set(subscriptionId, trail);
   }
 
@@ -371,9 +373,10 @@ export class SubscriptionService {
 
     this.ensureStarterBusinessLimit(businessId, ownerUserId);
 
-    const now = new Date().toISOString();
+    const nowValue = this.now();
+    const now = new Date(nowValue).toISOString();
     const subscription: SubscriptionRecord = {
-      id: `sub-${Date.now()}-${Math.random().toString(16).slice(2, 8)}`,
+      id: `sub-${nowValue}-${Math.random().toString(16).slice(2, 8)}`,
       businessId,
       ownerUserId,
       plan: 'STARTER',
@@ -381,10 +384,10 @@ export class SubscriptionService {
       monthlyPrice: STARTER_PLAN.monthlyPrice,
       currency: STARTER_PLAN.currency,
       currentPeriodStart: now,
-      currentPeriodEnd: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
-      nextBillingDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(),
+      currentPeriodEnd: new Date(nowValue + 30 * 24 * 60 * 60 * 1000).toISOString(),
+      nextBillingDate: new Date(nowValue + 30 * 24 * 60 * 60 * 1000).toISOString(),
       trialStartedAt: now,
-      trialEndsAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
+      trialEndsAt: new Date(nowValue + 7 * 24 * 60 * 60 * 1000).toISOString(),
       gracePeriodStart: null,
       gracePeriodEnd: null,
       suspendedAt: null,
@@ -485,9 +488,9 @@ export class SubscriptionService {
       subscription.gracePeriodEnd = null;
     }
     if (nextStatus === 'GRACE_PERIOD') {
-      const graceStart = new Date().toISOString();
+      const graceStart = new Date(this.now()).toISOString();
       subscription.gracePeriodStart = graceStart;
-      subscription.gracePeriodEnd = new Date(Date.now() + this.config.graceDays * 24 * 60 * 60 * 1000).toISOString();
+      subscription.gracePeriodEnd = new Date(this.now() + this.config.graceDays * 24 * 60 * 60 * 1000).toISOString();
     }
     if (nextStatus === 'SUSPENDED') {
       subscription.suspendedAt = new Date().toISOString();
@@ -542,8 +545,9 @@ export class SubscriptionService {
       return this.paymentsByEventId.get(key)!;
     }
 
+    const paymentAt = this.now();
     const payment: PaymentRecord = {
-      id: `pay-${Date.now()}-${Math.random().toString(16).slice(2, 8)}`,
+      id: `pay-${paymentAt}-${Math.random().toString(16).slice(2, 8)}`,
       subscriptionId,
       businessId: subscription.businessId,
       provider: 'INTERNAL_ABSTRACTION',
@@ -555,8 +559,8 @@ export class SubscriptionService {
       status: 'INITIATED',
       paymentDate: null,
       failureReason: null,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
+      createdAt: new Date(paymentAt).toISOString(),
+      updatedAt: new Date(paymentAt).toISOString(),
     };
 
     this.paymentIdempotency.set(key, payment.id);
@@ -586,8 +590,9 @@ export class SubscriptionService {
     }
 
     if (!payment) {
+      const paymentAt = this.now();
       const fallbackPayment: PaymentRecord = {
-        id: `pay-${Date.now()}-${Math.random().toString(16).slice(2, 8)}`,
+        id: `pay-${paymentAt}-${Math.random().toString(16).slice(2, 8)}`,
         subscriptionId,
         businessId: subscription.businessId,
         provider: 'INTERNAL_ABSTRACTION',
@@ -599,8 +604,8 @@ export class SubscriptionService {
         status: 'INITIATED',
         paymentDate: null,
         failureReason: null,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
+        createdAt: new Date(paymentAt).toISOString(),
+        updatedAt: new Date(paymentAt).toISOString(),
       };
 
       this.paymentIdempotency.set(providerEventId, fallbackPayment.id);

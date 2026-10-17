@@ -45,8 +45,8 @@ export function assertBusinessScope(context: BusinessScopeContext): void {
   }
 }
 
-export function createSupabaseServerClient() {
-  const cookieStore = cookies();
+export async function createSupabaseServerClient() {
+  const cookieStore = await cookies();
   const { url, anonKey } = getSupabaseServerConfig();
 
   return createServerClient(url, anonKey, {
@@ -56,7 +56,7 @@ export function createSupabaseServerClient() {
       },
       setAll(cookiesToSet: Array<{ name: string; value: string; options?: CookieOptions }>) {
         try {
-          cookiesToSet.forEach(({ name, value, options }) => cookieStore.set({ name, value, ...options }));
+          cookiesToSet.forEach(({ name, value, options }) => cookieStore.set(name, value, options));
         } catch {
           // The server component may not allow setting cookies in this context.
         }
@@ -77,7 +77,7 @@ export function createSupabaseAdminClient() {
 }
 
 export async function getServerSession() {
-  const supabase = createSupabaseServerClient();
+  const supabase = await createSupabaseServerClient();
   const { data, error } = await supabase.auth.getUser();
 
   if (error) {

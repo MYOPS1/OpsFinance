@@ -13,7 +13,7 @@ const NORMAL_BALANCE_BY_TYPE = {
   EXPENSE: 'DEBIT',
 } as const;
 
-async function getAuthorizedBusinessId(supabase: ReturnType<typeof createSupabaseServerClient>, userId: string, requestedBusinessId: string | null) {
+async function getAuthorizedBusinessId(supabase: Awaited<ReturnType<typeof createSupabaseServerClient>>, userId: string, requestedBusinessId: string | null) {
   const { data: membershipRows, error: membershipError } = await supabase
     .from('business_members')
     .select('business_id')
@@ -26,7 +26,7 @@ async function getAuthorizedBusinessId(supabase: ReturnType<typeof createSupabas
   return resolveAuthorizedBusinessId(userId, membershipRows ?? [], requestedBusinessId);
 }
 
-async function getAccountById(supabase: ReturnType<typeof createSupabaseServerClient>, businessId: string, id: string) {
+async function getAccountById(supabase: Awaited<ReturnType<typeof createSupabaseServerClient>>, businessId: string, id: string) {
   const { data, error } = await supabase
     .from('accounts')
     .select('*')
@@ -73,7 +73,7 @@ function validateAccountPayload(payload: Record<string, unknown>, existingAccoun
 }
 
 export async function GET(request: Request) {
-  const supabase = createSupabaseServerClient();
+  const supabase = await createSupabaseServerClient();
   const {
     data: { user },
     error: authError,
@@ -116,7 +116,7 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
-  const supabase = createSupabaseServerClient();
+  const supabase = await createSupabaseServerClient();
   const {
     data: { user },
     error: authError,
@@ -197,7 +197,7 @@ export async function POST(request: Request) {
 }
 
 export async function PUT(request: Request) {
-  const supabase = createSupabaseServerClient();
+  const supabase = await createSupabaseServerClient();
   const {
     data: { user },
     error: authError,

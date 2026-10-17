@@ -61,27 +61,68 @@ export default function RegisterPage() {
   };
 
   return (
-    <main style={{ maxWidth: 420, margin: '4rem auto', padding: '2rem', background: '#fff', borderRadius: 12 }}>
-      <h1>Register</h1>
-      <form onSubmit={handleSubmit} method="post">
-        <div style={{ display: 'grid', gap: '1rem' }}>
-          <label>
-            Name
-            <input type="text" name="name" style={{ width: '100%', marginTop: 4 }} />
-          </label>
-          <label>
-            Email
-            <input type="email" name="email" style={{ width: '100%', marginTop: 4 }} />
-          </label>
-          <label>
-            Password
-            <input type="password" name="password" style={{ width: '100%', marginTop: 4 }} />
-          </label>
-          <button type="submit" disabled={pending}>{pending ? 'Creating account...' : 'Create account'}</button>
+    <main className="opsfinance-auth-page">
+      <div className="opsfinance-auth-card">
+        <div className="opsfinance-auth-form-wrap">
+          <div className="opsfinance-brand-lockup">
+            <div className="opsfinance-brand-mark">OF</div>
+            <div className="opsfinance-brand-text">OpsFinance</div>
+          </div>
+
+          <h1 className="opsfinance-auth-title">Register</h1>
+          <p className="opsfinance-auth-copy">Create your business workspace and start tracking your books in minutes.</p>
+
+          <form className="opsfinance-auth-form" onSubmit={handleSubmit} method="post">
+            <div className="opsfinance-auth-field">
+              <label htmlFor="name">Name</label>
+              <input id="name" type="text" name="name" placeholder="Your full name" autoComplete="name" />
+            </div>
+
+            <div className="opsfinance-auth-field">
+              <label htmlFor="email">Email</label>
+              <input id="email" type="email" name="email" placeholder="you@example.com" autoComplete="email" />
+            </div>
+
+            <div className="opsfinance-auth-field">
+              <label htmlFor="password">Password</label>
+              <input id="password" type="password" name="password" placeholder="Create a password" autoComplete="new-password" />
+            </div>
+
+            <button type="submit" className="opsfinance-primary-button width-full" disabled={pending}>
+              {pending ? 'Creating account...' : 'Create account'}
+            </button>
+
+            <button type="button" className="opsfinance-secondary-button width-full" onClick={() => window.location.assign('/login')}>
+              Back to sign in
+            </button>
+          </form>
+
+          {status ? <p className="opsfinance-alert opsfinance-alert-success">{status}</p> : null}
+          {error ? <p className="opsfinance-alert opsfinance-alert-error">{error}</p> : null}
+
+          <p className="opsfinance-signup-prompt">
+            Already have an account? <button type="button" className="opsfinance-help-link opsfinance-inline-button" onClick={() => window.location.assign('/login')}>Log in</button>
+          </p>
         </div>
-      </form>
-      {status ? <p>{status}</p> : null}
-      {error ? <p style={{ color: '#b42318' }}>{error}</p> : null}
+
+        <div className="opsfinance-auth-side opsfinance-auth-side--brand" aria-hidden="true">
+          <div className="opsfinance-hero-bubble">Build a<br />clearer<br />financial<br />picture</div>
+
+          <div className="opsfinance-illustration-wrap">
+            <div className="opsfinance-figure opsfinance-figure--person opsfinance-figure--left">
+              <div className="opsfinance-head" />
+              <div className="opsfinance-body" />
+              <div className="opsfinance-laptop" />
+            </div>
+
+            <div className="opsfinance-figure opsfinance-figure--person opsfinance-figure--right">
+              <div className="opsfinance-head" />
+              <div className="opsfinance-body" />
+              <div className="opsfinance-laptop" />
+            </div>
+          </div>
+        </div>
+      </div>
     </main>
   );
 }

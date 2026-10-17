@@ -1,0 +1,67 @@
+{
+  "results": [
+    {
+      "route": "/login",
+      "reference": "01_login_page.png",
+      "actual": "qa-screenshots/actual/01_login_page_actual.png",
+      "status": "captured",
+      "url": "http://localhost:3001/dashboard"
+    },
+    {
+      "route": "/dashboard",
+      "reference": "02_dashboard.png",
+      "actual": "qa-screenshots/actual/02_dashboard_actual.png",
+      "status": "captured",
+      "url": "http://localhost:3001/dashboard"
+    },
+    {
+      "route": "/accounts",
+      "reference": "03_accounts.png",
+      "actual": "qa-screenshots/actual/03_accounts_actual.png",
+      "status": "captured",
+      "url": "http://localhost:3001/accounts"
+    },
+    {
+      "route": "/accounts/chart",
+      "reference": "04_chart_of_accounts.png",
+      "actual": "qa-screenshots/actual/04_chart_of_accounts_actual.png",
+      "status": "captured",
+      "url": "http://localhost:3001/accounts/chart"
+    },
+    {
+      "route": "/transactions",
+      "reference": "05_transactions.png",
+      "actual": "qa-screenshots/actual/05_transactions_actual.png",
+      "status": "captured",
+      "url": "http://localhost:3001/transactions"
+    },
+    {
+      "route": "/reconciliation",
+      "reference": "06_reconciliation.png",
+      "actual": "qa-screenshots/actual/06_reconciliation_actual.png",
+      "status": "captured",
+      "url": "http://localhost:3001/reconciliation"
+    },
+    {
+      "route": "/reports",
+      "reference": "07_reports.png",
+      "actual": "qa-screenshots/actual/07_reports_actual.png",
+      "status": "captured",
+      "url": "http://localhost:3001/reports"
+    },
+    {
+      "route": "/upload",
+      "reference": "08_upload_and_convert.png",
+      "actual": "qa-screenshots/actual/08_upload_and_convert_actual.png",
+      "status": "captured",
+      "url": "http://localhost:3001/upload"
+    },
+    {
+      "route": "/settings",
+      "reference": "09_settings.png",
+      "actual": "qa-screenshots/actual/09_settings_actual.png",
+      "status": "captured",
+      "url": "http://localhost:3001/settings"
+    }
+  ]
+}

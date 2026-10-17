@@ -1,7 +1,6 @@
 import type { JournalEntry } from './accounting';
 import type { TransactionRecord } from './transactions';
 import type { BankTransaction, FinancialStatement, ReconciliationSession } from './reconciliation';
-import type { BillingAuditEvent, BillingFeature, EntitlementContext, PaymentRecord, SubscriptionRecord } from './subscriptions';
 import type { BusinessMember } from './types';
 import type { UploadRecord } from './upload';
 
@@ -44,23 +43,7 @@ export interface ReconciliationRepository<T extends ReconciliationSession = Reco
   listByBusiness(businessId: string): T[];
 }
 
-export interface SubscriptionRepository<T extends SubscriptionRecord = SubscriptionRecord> extends AccountRepository<T> {
-  listByBusiness(businessId: string): T[];
-}
-
-export interface PaymentRepository<T extends PaymentRecord = PaymentRecord> extends AccountRepository<T> {
-  listByBusiness(businessId: string): T[];
-}
-
-export interface EntitlementRepository {
-  canAccess(feature: BillingFeature, context: EntitlementContext): boolean;
-}
-
 export interface MembershipRepository<T extends BusinessMember = BusinessMember> extends AccountRepository<T> {
-  listByBusiness(businessId: string): T[];
-}
-
-export interface AuditRepository<T extends BillingAuditEvent = BillingAuditEvent> extends AccountRepository<T> {
   listByBusiness(businessId: string): T[];
 }
 
@@ -109,10 +92,4 @@ export class LocalBankTransactionRepository extends LocalAccountRepository<BankT
 
 export class LocalReconciliationRepository extends LocalAccountRepository<ReconciliationSession> implements ReconciliationRepository {}
 
-export class LocalSubscriptionRepository extends LocalAccountRepository<SubscriptionRecord> implements SubscriptionRepository {}
-
-export class LocalPaymentRepository extends LocalAccountRepository<PaymentRecord> implements PaymentRepository {}
-
 export class LocalMembershipRepository extends LocalAccountRepository<BusinessMember> implements MembershipRepository {}
-
-export class LocalAuditRepository extends LocalAccountRepository<BillingAuditEvent> implements AuditRepository {}

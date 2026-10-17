@@ -5,8 +5,14 @@ import type { NextRequest } from 'next/server';
 const PUBLIC_PATHS = ['/login', '/register', '/auth/callback', '/opsfinance', '/'];
 const PROTECTED_PATH_PREFIXES = ['/dashboard', '/accounts', '/transactions', '/upload', '/reconciliation', '/reports', '/settings'];
 
+const DEMO_MODE = process.env.NODE_ENV !== 'production' && (process.env.NEXT_PUBLIC_DEMO_MODE === 'true' || process.env.OPSFINANCE_DEMO_MODE === 'true');
+
 export async function middleware(request: NextRequest) {
   let response = NextResponse.next({ request: { headers: request.headers } });
+
+  if (DEMO_MODE) {
+    return response;
+  }
 
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL ?? process.env.SUPABASE_URL;
   const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ?? process.env.SUPABASE_ANON_KEY;

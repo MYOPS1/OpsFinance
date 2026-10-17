@@ -39,7 +39,7 @@ export async function POST(request: Request) {
 
   const event = provider.parseWebhookEvent(parsedPayload);
   const admin = createSupabaseAdminClient();
-  const supabase = createSupabaseServerClient();
+  const supabase = await createSupabaseServerClient();
 
   const { data: existingPayment, error: lookupError } = await admin
     .from('subscription_payments')

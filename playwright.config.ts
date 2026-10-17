@@ -1,5 +1,8 @@
 import { defineConfig, devices } from '@playwright/test';
 
+process.env.NEXT_PUBLIC_DEMO_MODE ??= 'true';
+process.env.OPSFINANCE_DEMO_MODE ??= 'true';
+
 export default defineConfig({
   testDir: './tests/e2e',
   timeout: 30_000,
@@ -24,6 +27,10 @@ export default defineConfig({
   ],
   webServer: {
     command: 'npm run dev',
+    env: {
+      NEXT_PUBLIC_DEMO_MODE: 'true',
+      OPSFINANCE_DEMO_MODE: 'true',
+    },
     url: 'http://127.0.0.1:3000',
     reuseExistingServer: !process.env.CI,
     timeout: 120_000,

@@ -5,7 +5,7 @@ import { ChartOfAccountsWorkflow } from '../../../components/chart-of-accounts-w
 import { createSupabaseServerClient } from '../../../lib/supabase/server';
 
 export default async function ChartOfAccountsPage() {
-  const supabase = createSupabaseServerClient();
+  const supabase = await createSupabaseServerClient();
   const {
     data: { user },
     error,

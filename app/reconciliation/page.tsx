@@ -5,21 +5,36 @@ import { ReconciliationWorkflow } from '../../components/reconciliation-workflow
 import { resolveCurrentBusinessForUser } from '../../lib/auth/business';
 import { createSupabaseServerClient } from '../../lib/supabase/server';
 
-export default async function ReconciliationPage() {
-  const supabase = createSupabaseServerClient();
-  const {
-    data: { user },
-    error,
-  } = await supabase.auth.getUser();
+const DEMO_MODE = process.env.NODE_ENV !== 'production' && (process.env.NEXT_PUBLIC_DEMO_MODE === 'true' || process.env.OPSFINANCE_DEMO_MODE === 'true');
 
-  if (error || !user) {
-    redirect('/login');
+export default async function ReconciliationPage() {
+  let user: { id: string; email?: string | null } | null = null;
+  let business: { id: string; name: string } | null = null;
+  let businessContextError: string | null = null;
+
+  if (DEMO_MODE) {
+    user = { id: 'demo-user', email: 'demo@opsfinance.local' };
+    business = { id: 'demo-business', name: 'Demo Business' };
+  } else {
+    try {
+      const supabase = await createSupabaseServerClient();
+      const { data: userData, error } = await supabase.auth.getUser();
+
+      if (error || !userData.user) {
+        redirect('/login');
+      }
+
+      user = userData.user;
+      const result = await resolveCurrentBusinessForUser(supabase, user.id);
+      business = result.business;
+      businessContextError = result.error;
+    } catch {
+      redirect('/login');
+    }
   }
 
-  const { business, error: businessContextError } = await resolveCurrentBusinessForUser(supabase, user.id);
-
   return (
-    <AuthenticatedAppShell businessName={business?.name ?? 'No active business'} userEmail={user.email ?? user.id}>
+    <AuthenticatedAppShell businessName={business?.name ?? 'No active business'} userEmail={user?.email ?? user?.id ?? 'demo@opsfinance.local'}>
       <ReconciliationWorkflow businessId={business?.id ?? undefined} businessContextError={businessContextError ?? null} />
     </AuthenticatedAppShell>
   );

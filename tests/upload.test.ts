@@ -1,10 +1,33 @@
 import { describe, expect, it } from 'vitest';
 
 import { AccountingEngine } from '../packages/accounting';
+import { isAllowedImportTransition, validateCsvBankStatement } from '../packages/csv-import';
 import { ReconciliationService } from '../packages/reconciliation';
 import { UploadConvertService } from '../packages/upload';
 
 describe('Phase 7 upload and convert hardening', () => {
+  it('validates quoted CSV rows and deterministic transition rules', () => {
+    const csv = 'Date,Description,Reference,Debit,Credit,Balance\n2026-09-12,"Customer, payment",INV-1001,,500.00,5000.00\n2026-09-16,"Petrol, purchase",PO-2041,120.00,,4880.00';
+
+    const validation = validateCsvBankStatement(csv);
+    expect(validation.isValid).toBe(true);
+    expect(validation.rowCount).toBe(3);
+    expect(isAllowedImportTransition('PARSED', 'APPROVED')).toBe(true);
+    expect(isAllowedImportTransition('APPROVED', 'PARSED')).toBe(false);
+    expect(isAllowedImportTransition('POSTED', 'APPROVED')).toBe(false);
+  });
+
+  it('rejects malformed CSV rows and row limit breaches before parsing', () => {
+    const malformed = validateCsvBankStatement('Date,Description,Reference\n2026-09-12,"Customer payment",INV-1001\n2026-09-16,Petrol');
+    expect(malformed.isValid).toBe(false);
+    expect(malformed.errors.some((error) => error.includes('malformed'))).toBe(true);
+
+    const rows = Array.from({ length: 4 }, (_, index) => `2026-09-${String(index + 1).padStart(2, '0')},Row ${index + 1},INV-${index + 1},,100.00,1000.00`).join('\n');
+    const limited = validateCsvBankStatement(`Date,Description,Reference,Debit,Credit,Balance\n${rows}`, { maxRows: 2, maxBytes: 1_000_000 });
+    expect(limited.isValid).toBe(false);
+    expect(limited.errors.some((error) => error.includes('maximum row limit'))).toBe(true);
+  });
+
   const businessId = '11111111-1111-4111-8111-111111111111';
   const otherBusinessId = '22222222-2222-4222-8222-222222222222';
   const bankAccountId = '33333333-3333-4333-8333-333333333333';

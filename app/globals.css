@@ -2,7 +2,7 @@ html, body {
   margin: 0;
   padding: 0;
   min-height: 100vh;
-  background: #fff8fb;
+  background: linear-gradient(180deg, #f8f4ff 0%, #fff9fb 28%, #fffdfd 100%);
   color: #17223f;
   font-family: Arial, Helvetica, sans-serif;
 }
@@ -12,9 +12,12 @@ html, body {
 a { color: inherit; text-decoration: none; }
 
 a:focus-visible,
-button:focus-visible {
-  outline: 3px solid rgba(122, 104, 255, 0.4);
-  outline-offset: 3px;
+button:focus-visible,
+input:focus-visible,
+select:focus-visible,
+textarea:focus-visible {
+  outline: 3px solid rgba(122, 104, 255, 0.35);
+  outline-offset: 2px;
 }
 
 body {
@@ -29,6 +32,472 @@ img {
 
 button, input, textarea, select {
   font: inherit;
+}
+
+main[style*="fontFamily: 'Arial, sans-serif'"] {
+  background: linear-gradient(180deg, #f4f0ff 0%, #fff7fb 100%) !important;
+}
+
+.opsfinance-auth-page {
+  min-height: 100vh;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 32px 20px;
+  background:
+    radial-gradient(circle at top left, rgba(255, 136, 176, 0.22), transparent 26%),
+    radial-gradient(circle at bottom right, rgba(132, 110, 255, 0.2), transparent 24%),
+    linear-gradient(180deg, #f4efff 0%, #fff7fb 100%);
+}
+
+.opsfinance-auth-card {
+  width: min(1000px, 100%);
+  display: grid;
+  grid-template-columns: 1.04fr 1fr;
+  background: rgba(255, 255, 255, 0.82);
+  border: 1px solid rgba(118, 105, 182, 0.14);
+  border-radius: 32px;
+  box-shadow: 0 28px 90px rgba(91, 71, 146, 0.17);
+  overflow: hidden;
+}
+
+.opsfinance-auth-form-wrap {
+  padding: 38px 40px 30px;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.76), rgba(248, 246, 255, 0.86));
+}
+
+.opsfinance-auth-side {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 100%;
+  padding: 42px 32px;
+  background: linear-gradient(180deg, rgba(241, 234, 255, 0.92), rgba(255, 246, 250, 0.98));
+}
+
+.opsfinance-brand-lockup {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 22px;
+}
+
+.opsfinance-brand-mark {
+  width: 42px;
+  height: 42px;
+  display: grid;
+  place-items: center;
+  border-radius: 14px;
+  background: linear-gradient(135deg, #ff7aa5 0%, #a46bff 52%, #ffb24c 100%);
+  color: #fff;
+  font-weight: 900;
+  letter-spacing: 0.08em;
+  box-shadow: 0 16px 30px rgba(126, 90, 228, 0.24);
+}
+
+.opsfinance-brand-text {
+  font-size: 0.9rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #2f284d;
+}
+
+.opsfinance-auth-title {
+  margin: 0 0 8px;
+  font-size: clamp(2.2rem, 4vw, 3.15rem);
+  line-height: 1.05;
+  letter-spacing: -0.06em;
+  color: #1d1b3d;
+}
+
+.opsfinance-auth-copy {
+  margin: 0 0 24px;
+  color: #5d5a7b;
+  font-size: 1rem;
+  line-height: 1.6;
+}
+
+.opsfinance-auth-form {
+  display: grid;
+  gap: 18px;
+}
+
+.opsfinance-auth-field label,
+.opsfinance-auth-field span {
+  display: grid;
+  gap: 8px;
+  font-weight: 700;
+  color: #413d5d;
+}
+
+.opsfinance-auth-field input {
+  width: 100%;
+  min-height: 46px;
+  border: 1px solid rgba(110, 103, 163, 0.2);
+  border-radius: 14px;
+  padding: 0.8rem 0.9rem;
+  background: rgba(255, 255, 255, 0.88);
+  color: #1d1b3d;
+  box-shadow: inset 0 1px 2px rgba(77, 74, 120, 0.02);
+}
+
+.opsfinance-auth-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.opsfinance-help-link {
+  border: none;
+  background: transparent;
+  color: #5d57db;
+  font-weight: 700;
+  cursor: pointer;
+  text-decoration: none;
+  padding: 0;
+}
+
+.opsfinance-checkbox-row {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  color: #403f5b;
+  font-weight: 700;
+  margin-top: -4px;
+}
+
+.opsfinance-checkbox-row input {
+  width: 18px;
+  height: 18px;
+  accent-color: #7a68ff;
+}
+
+.opsfinance-primary-button,
+.opsfinance-secondary-button,
+.opsfinance-ghost-button {
+  border: none;
+  border-radius: 14px;
+  min-height: 46px;
+  padding: 0.8rem 1.1rem;
+  cursor: pointer;
+  font-weight: 800;
+  transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.opsfinance-primary-button {
+  background: linear-gradient(135deg, #ff7aa5 0%, #ff9b58 52%, #a56aff 100%);
+  color: #fff;
+  box-shadow: 0 18px 28px rgba(220, 110, 165, 0.2);
+}
+
+.opsfinance-secondary-button {
+  background: rgba(127, 111, 233, 0.08);
+  color: #2a2958;
+  border: 1px solid rgba(127, 111, 233, 0.18);
+}
+
+.opsfinance-ghost-button {
+  background: transparent;
+  color: #3b2f65;
+  border: 1px solid rgba(96, 89, 140, 0.18);
+}
+
+.opsfinance-primary-button:hover,
+.opsfinance-secondary-button:hover,
+.opsfinance-ghost-button:hover {
+  transform: translateY(-1px);
+}
+
+.opsfinance-alert {
+  margin-top: 18px;
+  margin-bottom: 0;
+  padding: 0.8rem 1rem;
+  border-radius: 12px;
+  font-weight: 700;
+}
+
+.opsfinance-alert-success {
+  color: #0d6b5a;
+  background: rgba(214, 249, 241, 0.85);
+}
+
+.opsfinance-alert-error {
+  color: #b42318;
+  background: rgba(255, 234, 238, 0.9);
+}
+
+.opsfinance-signup-prompt {
+  margin: 18px 0 0;
+  text-align: center;
+  color: #514c68;
+  font-weight: 600;
+}
+
+.opsfinance-inline-button {
+  font-weight: 800;
+  display: inline;
+}
+
+.opsfinance-hero-bubble {
+  position: absolute;
+  right: 36px;
+  top: 48px;
+  padding: 18px 20px;
+  border-radius: 22px;
+  background: rgba(255, 255, 255, 0.92);
+  color: #1b1c57;
+  font-size: clamp(1.1rem, 2vw, 1.6rem);
+  line-height: 1.1;
+  font-weight: 800;
+  letter-spacing: -0.04em;
+  box-shadow: 0 18px 34px rgba(91, 71, 146, 0.12);
+}
+
+.opsfinance-illustration-wrap {
+  position: relative;
+  width: min(420px, 100%);
+  height: 310px;
+  margin-top: 42px;
+}
+
+.opsfinance-figure {
+  position: absolute;
+  bottom: 0;
+  width: 179px;
+  height: 220px;
+}
+
+.opsfinance-figure--left {
+  left: 38px;
+}
+
+.opsfinance-figure--right {
+  right: 38px;
+}
+
+.opsfinance-head {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  top: 14px;
+  width: 82px;
+  height: 82px;
+  border-radius: 50%;
+  background: linear-gradient(180deg, #f8d0b8 0%, #f2b199 100%);
+  box-shadow: inset 0 -8px 0 rgba(157, 93, 72, 0.08);
+}
+
+.opsfinance-figure--left .opsfinance-head {
+  background: linear-gradient(180deg, #f9d9c4 0%, #efb294 100%);
+}
+
+.opsfinance-figure--right .opsfinance-head {
+  background: linear-gradient(180deg, #f3cfba 0%, #ecb78f 100%);
+}
+
+.opsfinance-body {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  bottom: 26px;
+  width: 112px;
+  height: 116px;
+  border-radius: 40% 40% 18% 18%;
+  background: linear-gradient(180deg, #ff7aa5 0%, #f78da6 100%);
+}
+
+.opsfinance-figure--right .opsfinance-body {
+  background: linear-gradient(180deg, #5ca7ff 0%, #4a78d9 100%);
+}
+
+.opsfinance-laptop {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  bottom: 0;
+  width: 170px;
+  height: 90px;
+  border-radius: 18px 18px 14px 14px;
+  background: linear-gradient(180deg, #f8f7ff 0%, #dfe7ff 100%);
+  border: 3px solid rgba(96, 118, 183, 0.25);
+  box-shadow: 0 18px 28px rgba(70, 79, 125, 0.1);
+}
+
+.opsfinance-laptop::after {
+  content: '';
+  position: absolute;
+  left: 50%;
+  bottom: -12px;
+  transform: translateX(-50%);
+  width: 192px;
+  height: 12px;
+  border-radius: 8px;
+  background: rgba(125, 135, 175, 0.35);
+}
+
+@media (max-width: 820px) {
+  .opsfinance-auth-card {
+    grid-template-columns: 1fr;
+  }
+
+  .opsfinance-auth-side {
+    order: 2;
+    min-height: 260px;
+  }
+
+  .opsfinance-auth-form-wrap {
+    order: 1;
+    padding: 28px 22px 26px;
+  }
+
+  .opsfinance-hero-bubble {
+    right: 22px;
+    top: 20px;
+  }
+}
+
+.opsfinance-workflow-panel {
+  min-height: 100vh;
+  background: linear-gradient(180deg, #f3edff 0%, #fff8fb 100%);
+  color: #17223f;
+  padding: 28px 16px 38px;
+}
+
+.opsfinance-workflow-inner {
+  max-width: 1280px;
+  margin: 0 auto;
+  display: grid;
+  gap: 18px;
+}
+
+.opsfinance-workflow-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 1rem;
+  flex-wrap: wrap;
+  padding: 8px 0;
+}
+
+.opsfinance-workflow-header h1 {
+  margin: 0;
+  font-size: clamp(2rem, 3vw, 3rem);
+  letter-spacing: -0.06em;
+  color: #191d3a;
+}
+
+.opsfinance-kicker {
+  margin: 0;
+  color: #5f5c85;
+  letter-spacing: 0.09em;
+  font-size: 12px;
+  text-transform: uppercase;
+  font-weight: 800;
+}
+
+.opsfinance-surface {
+  background: rgba(255, 255, 255, 0.82);
+  border: 1px solid rgba(106, 101, 154, 0.12);
+  border-radius: 20px;
+  box-shadow: 0 18px 40px rgba(77, 64, 113, 0.08);
+}
+
+.opsfinance-card-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 1rem;
+}
+
+.opsfinance-metric-card {
+  background: linear-gradient(180deg, #fff 0%, #f9f8ff 100%);
+  border: 1px solid rgba(104, 98, 148, 0.12);
+  border-radius: 18px;
+  padding: 1rem;
+  box-shadow: 0 12px 24px rgba(71, 61, 120, 0.04);
+}
+
+.opsfinance-metric-card .label {
+  display: block;
+  color: #5f5c85;
+  font-size: 0.8rem;
+  margin-bottom: 0.5rem;
+}
+
+.opsfinance-metric-card strong {
+  display: block;
+  font-size: clamp(1.2rem, 2vw, 1.7rem);
+  letter-spacing: -0.04em;
+}
+
+.opsfinance-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.opsfinance-table th,
+.opsfinance-table td {
+  padding: 0.8rem 0.75rem;
+  border-bottom: 1px solid rgba(110, 103, 163, 0.12);
+  text-align: left;
+  vertical-align: middle;
+}
+
+.opsfinance-table th {
+  color: #5f5c85;
+  font-size: 0.82rem;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.opsfinance-form-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 0.85rem;
+}
+
+.opsfinance-form-grid label,
+.opsfinance-form-stack label {
+  display: grid;
+  gap: 0.4rem;
+  font-weight: 700;
+  color: #3a375f;
+}
+
+.opsfinance-form-grid input,
+.opsfinance-form-grid select,
+.opsfinance-form-grid textarea,
+.opsfinance-form-stack input,
+.opsfinance-form-stack select,
+.opsfinance-form-stack textarea {
+  border: 1px solid rgba(108, 101, 162, 0.18);
+  border-radius: 12px;
+  min-height: 44px;
+  padding: 0.7rem 0.8rem;
+  background: rgba(255, 255, 255, 0.8);
+  color: #171b34;
+}
+
+.opsfinance-form-stack {
+  display: grid;
+  gap: 0.8rem;
+}
+
+.opsfinance-action-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  align-items: center;
+}
+
+.opsfinance-inline-label {
+  display: flex;
+  align-items: center;
+  gap: 0.45rem;
+  color: #3d3861;
+  font-weight: 700;
 }
 
 .opsfinance-page {

@@ -142,21 +142,23 @@ export function DashboardWorkflow({ businessId, businessName }: DashboardWorkflo
 
   if (!businessId) {
     return (
-      <main style={{ minHeight: '100vh', padding: '2rem 1rem', background: '#f8fafc', fontFamily: 'Arial, sans-serif', color: '#0f172a' }}>
-        <div style={{ maxWidth: 960, margin: '0 auto', background: '#fff', border: '1px solid #e2e8f0', borderRadius: 18, padding: '1.5rem' }}>
-          <h1 style={{ marginTop: 0 }}>OpsFinance Dashboard</h1>
-          <p style={{ margin: '0.5rem 0 1rem' }}>No active business is available for this user yet.</p>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '1rem', marginTop: '1rem' }}>
-            {['Total Cash', 'Sales / Revenue', 'Expenses', 'Net Profit'].map((label) => (
-              <div key={label} style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 12, padding: '0.9rem' }}>
-                <div style={{ color: '#475569', fontSize: 13 }}>{label}</div>
-                <div style={{ fontSize: '1.5rem', fontWeight: 800 }}>{formatMoney('0')}</div>
-              </div>
-            ))}
-          </div>
-          <div style={{ marginTop: '1rem' }}>
-            <h2 style={{ marginBottom: '0.5rem' }}>Financial Account Balances</h2>
-            <p style={{ margin: 0, color: '#475569' }}>No account balances available.</p>
+      <main className="opsfinance-workflow-panel" style={{ padding: '2rem 1rem' }}>
+        <div className="opsfinance-workflow-inner" style={{ maxWidth: 960 }}>
+          <div className="opsfinance-surface" style={{ padding: '1.5rem' }}>
+            <h1 style={{ marginTop: 0 }}>OpsFinance Dashboard</h1>
+            <p style={{ margin: '0.5rem 0 1rem' }}>No active business is available for this user yet.</p>
+            <div className="opsfinance-card-grid" style={{ marginTop: '1rem' }}>
+              {['Total Cash', 'Sales / Revenue', 'Expenses', 'Net Profit'].map((label) => (
+                <div key={label} className="opsfinance-metric-card">
+                  <span className="label">{label}</span>
+                  <strong>{formatMoney('0')}</strong>
+                </div>
+              ))}
+            </div>
+            <div style={{ marginTop: '1rem' }}>
+              <h2 style={{ marginBottom: '0.5rem' }}>Financial Account Balances</h2>
+              <p style={{ margin: 0, color: '#475569' }}>No account balances available.</p>
+            </div>
           </div>
         </div>
       </main>
@@ -165,8 +167,8 @@ export function DashboardWorkflow({ businessId, businessName }: DashboardWorkflo
 
   if (error) {
     return (
-      <main style={{ minHeight: '100vh', padding: '2rem 1rem', background: '#f8fafc', fontFamily: 'Arial, sans-serif', color: '#0f172a' }}>
-        <div role="alert" style={{ maxWidth: 960, margin: '0 auto', background: '#fff1f2', border: '1px solid #fecdd3', borderRadius: 18, padding: '1.5rem' }}>
+      <main className="opsfinance-workflow-panel" style={{ padding: '2rem 1rem' }}>
+        <div role="alert" className="opsfinance-surface" style={{ maxWidth: 960, margin: '0 auto', background: '#fff1f2', border: '1px solid #fecdd3', padding: '1.5rem' }}>
           <h1 style={{ marginTop: 0 }}>Dashboard error</h1>
           <p style={{ marginBottom: 0 }}>{error}</p>
         </div>
@@ -175,8 +177,8 @@ export function DashboardWorkflow({ businessId, businessName }: DashboardWorkflo
   }
 
   return (
-    <main style={{ minHeight: '100vh', background: '#f8fafc', color: '#0f172a', fontFamily: 'Arial, sans-serif', padding: '1.5rem 1rem 2rem' }}>
-      <div style={{ maxWidth: 1280, margin: '0 auto', display: 'grid', gap: '1.25rem' }}>
+    <main className="opsfinance-workflow-panel" style={{ padding: '1.5rem 1rem 2rem' }}>
+      <div className="opsfinance-workflow-inner" style={{ maxWidth: 1280 }}>
         <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '1rem', flexWrap: 'wrap' }}>
           <div>
             <p style={{ margin: 0, color: '#475569', letterSpacing: '0.08em', fontSize: 12, fontWeight: 700, textTransform: 'uppercase' }}>OpsFinance</p>

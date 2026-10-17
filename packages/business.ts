@@ -1,5 +1,4 @@
 import type { AccountingPeriod } from './accounting';
-import type { SubscriptionService } from './subscriptions';
 import type { Business } from './types';
 
 export interface BusinessContext {
@@ -53,7 +52,6 @@ export class BusinessService {
     initialBusinesses: Business[] = [],
     initialPeriods: AccountingPeriod[] = [],
     historicalCurrencies: Record<string, string[]> = {},
-    private readonly subscriptionService?: SubscriptionService,
   ) {
     for (const business of initialBusinesses) {
       this.businesses.set(business.id, { ...business });
@@ -202,8 +200,6 @@ export class BusinessService {
       this.assertBusinessAccess({ businessId: sanitized.id, userId });
       return this.cloneBusiness(existing);
     }
-
-    this.subscriptionService?.registerBusiness(sanitized.id, userId);
 
     this.businesses.set(sanitized.id, sanitized);
     const members = this.membershipByBusiness.get(sanitized.id) ?? new Set<string>();

@@ -6,7 +6,7 @@ import { createSupabaseServerClient } from '@/lib/supabase/server';
 const VALID_FINANCIAL_TYPES = new Set(['BANK', 'CASH', 'E_WALLET', 'CREDIT_CARD', 'LOAN', 'OTHER']);
 const VALID_STATUS_VALUES = new Set(['ACTIVE', 'INACTIVE']);
 
-async function getAuthorizedBusinessId(supabase: ReturnType<typeof createSupabaseServerClient>, userId: string, requestedBusinessId: string | null) {
+async function getAuthorizedBusinessId(supabase: Awaited<ReturnType<typeof createSupabaseServerClient>>, userId: string, requestedBusinessId: string | null) {
   const { data: membershipRows, error: membershipError } = await supabase
     .from('business_members')
     .select('business_id')
@@ -19,7 +19,7 @@ async function getAuthorizedBusinessId(supabase: ReturnType<typeof createSupabas
   return resolveAuthorizedBusinessId(userId, membershipRows ?? [], requestedBusinessId);
 }
 
-async function getFinancialAccountById(supabase: ReturnType<typeof createSupabaseServerClient>, businessId: string, id: string) {
+async function getFinancialAccountById(supabase: Awaited<ReturnType<typeof createSupabaseServerClient>>, businessId: string, id: string) {
   const { data, error } = await supabase
     .from('financial_accounts')
     .select('*')
@@ -34,7 +34,7 @@ async function getFinancialAccountById(supabase: ReturnType<typeof createSupabas
   return data;
 }
 
-async function getOpeningEquityAccount(supabase: ReturnType<typeof createSupabaseServerClient>, businessId: string) {
+async function getOpeningEquityAccount(supabase: Awaited<ReturnType<typeof createSupabaseServerClient>>, businessId: string) {
   const { data, error } = await supabase
     .from('accounts')
     .select('id')
@@ -92,7 +92,7 @@ function validateFinancialAccountPayload(payload: Record<string, unknown>, exist
   };
 }
 
-async function postOpeningBalanceJournal(supabase: ReturnType<typeof createSupabaseServerClient>, businessId: string, accountId: string, amount: number, journalDate: string | null, createdBy: string) {
+async function postOpeningBalanceJournal(supabase: Awaited<ReturnType<typeof createSupabaseServerClient>>, businessId: string, accountId: string, amount: number, journalDate: string | null, createdBy: string) {
   if (!Number.isFinite(amount) || amount === 0) {
     return null;
   }
@@ -144,7 +144,7 @@ async function postOpeningBalanceJournal(supabase: ReturnType<typeof createSupab
 }
 
 export async function GET(request: Request) {
-  const supabase = createSupabaseServerClient();
+  const supabase = await createSupabaseServerClient();
   const {
     data: { user },
     error: authError,
@@ -187,7 +187,7 @@ export async function GET(request: Request) {
 }
 
 export async function POST(request: Request) {
-  const supabase = createSupabaseServerClient();
+  const supabase = await createSupabaseServerClient();
   const {
     data: { user },
     error: authError,
@@ -264,7 +264,7 @@ export async function POST(request: Request) {
 }
 
 export async function PUT(request: Request) {
-  const supabase = createSupabaseServerClient();
+  const supabase = await createSupabaseServerClient();
   const {
     data: { user },
     error: authError,

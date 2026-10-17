@@ -3,9 +3,10 @@ import { redirect } from 'next/navigation';
 import { AuthenticatedAppShell } from '../../components/authenticated-shell';
 import { ReconciliationWorkflow } from '../../components/reconciliation-workflow';
 import { resolveCurrentBusinessForUser } from '../../lib/auth/business';
+import { isDemoModeEnabled } from '../../lib/runtime/demo-mode';
 import { createSupabaseServerClient } from '../../lib/supabase/server';
 
-const DEMO_MODE = process.env.NODE_ENV !== 'production' && (process.env.NEXT_PUBLIC_DEMO_MODE === 'true' || process.env.OPSFINANCE_DEMO_MODE === 'true');
+const DEMO_MODE = isDemoModeEnabled();
 
 export default async function ReconciliationPage() {
   let user: { id: string; email?: string | null } | null = null;

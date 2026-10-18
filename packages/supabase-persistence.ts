@@ -462,24 +462,21 @@ export class SupabaseIdempotencyRepository {
       return null;
     }
 
-    const result = await (this.client.from('idempotency_keys') as any)
-      .select('result_id')
-      .eq('business_id', scope)
-      .eq('idempotency_key', trimmedKey)
-      .eq('operation_type', operationType)
-      .order('created_at', { ascending: false })
-      .limit(1)
-      .maybeSingle();
+    const { data, error } = await (this.client as any).rpc('get_accounting_idempotency', {
+      p_business_id: scope,
+      p_idempotency_key: trimmedKey,
+      p_operation_type: operationType,
+    });
 
-    if (result.error) {
-      throw new Error(result.error.message ?? 'Supabase idempotency lookup failed.');
+    if (error) {
+      throw new Error(error.message ?? 'Supabase idempotency lookup failed.');
     }
 
-    if (!result.data) {
+    if (data == null || data === '') {
       return null;
     }
 
-    return { resultId: result.data.result_id ?? undefined };
+    return { resultId: String(data) };
   }
 
   async reserve(
@@ -500,22 +497,9 @@ export class SupabaseIdempotencyRepository {
       return { resultId: existing.resultId, idempotent: true };
     }
 
-    const insert = await (this.client.from('idempotency_keys') as any)
-      .insert({
-        business_id: scope,
-        idempotency_key: trimmedKey,
-        operation_type: operationType,
-        result_type: resultType,
-        result_id: resultId,
-      })
-      .select()
-      .single();
-
-    if (insert.error) {
-      throw new Error(insert.error.message ?? 'Supabase idempotency registration failed.');
-    }
-
-    return { resultId, idempotent: false };
+    throw new Error(
+      'Direct idempotency reservation is disabled. Use the authenticated post_accounting_transaction_atomic RPC to create or reuse journal rows safely.',
+    );
   }
 }
 

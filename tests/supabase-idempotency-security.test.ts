@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { readFileSync } from 'node:fs';
+import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 const migration = readFileSync(
@@ -10,8 +10,13 @@ const accountingMigration = readFileSync(
   join(process.cwd(), 'supabase/migrations/005_accounting_atomic_persistence.sql'),
   'utf8',
 );
+const securityMigration = readFileSync(
+  join(process.cwd(), 'supabase/migrations/016_security_hardening_idempotency_and_rpcs.sql'),
+  'utf8',
+);
 
 const atomicPostingSignature = /public\.post_accounting_transaction_atomic\(\s*uuid,\s*text,\s*text,\s*date,\s*text,\s*text,\s*numeric,\s*uuid,\s*uuid,\s*text,\s*text,\s*jsonb\s*\)/i;
+const hasDisposableDatabase = Boolean(process.env.DATABASE_URL || process.env.SUPABASE_DB_URL);
 
 describe('accounting idempotency security migration', () => {
   it('keeps the first milestone schema aligned with the accounting contracts', () => {
@@ -135,5 +140,94 @@ describe('accounting idempotency security migration', () => {
     expect(proposed).toMatch(/update public\.idempotency_keys\s*set result_id = v_transaction_id/i);
     expect(proposed).toContain('security definer');
     expect(proposed).toContain("set search_path = ''");
+  });
+
+  it('hardens direct table and RPC access in the final migration', () => {
+    expect(securityMigration).toMatch(
+      /revoke all on table public\.idempotency_keys\s+from public,\s*anon,\s*authenticated\s*;/i,
+    );
+    expect(securityMigration).toMatch(
+      /revoke execute on function public\.get_accounting_idempotency\(uuid,\s*text,\s*text\)\s+from public,\s*anon,\s*authenticated\s*;/i,
+    );
+    expect(securityMigration).toMatch(
+      new RegExp(
+        String.raw`revoke execute on function ${atomicPostingSignature.source}\s+from public,\s*anon\s*;`,
+        'i',
+      ),
+    );
+    expect(securityMigration).toMatch(
+      new RegExp(
+        String.raw`grant execute on function ${atomicPostingSignature.source}\s+to authenticated\s*;`,
+        'i',
+      ),
+    );
+    expect(securityMigration).toMatch(/alter table public\.idempotency_keys enable row level security/i);
+    expect(securityMigration).toMatch(/create policy "idempotency_keys_no_direct_access"/i);
+    expect(securityMigration).toMatch(/grant all on table public\.idempotency_keys to service_role/i);
+  });
+
+  it('keeps the atomic posting RPC signature compatible', () => {
+    expect(securityMigration).toMatch(/public\.post_accounting_transaction_atomic\s*\(/i);
+    expect(securityMigration).toMatch(
+      /uuid\s*,\s*text\s*,\s*text\s*,\s*date\s*,\s*text\s*,\s*text\s*,\s*numeric\s*,\s*uuid\s*,\s*uuid\s*,\s*text\s*,\s*text\s*,\s*jsonb/i,
+    );
+  });
+});
+
+const databaseIntegration = hasDisposableDatabase ? describe : describe.skip;
+databaseIntegration('security hardening database integration', () => {
+  it('anonymous RPC execution denied', async () => {
+    const { Client } = await import('pg');
+    const connectionString = process.env.DATABASE_URL ?? process.env.SUPABASE_DB_URL;
+    const client = new Client({ connectionString });
+
+    await client.connect();
+    try {
+      const result = await client.query(
+        "SELECT has_function_privilege('anon', 'public.post_accounting_transaction_atomic(uuid, text, text, date, text, text, numeric, uuid, uuid, text, text, jsonb)', 'execute') AS has_execute;",
+      );
+      expect(result.rows[0]?.has_execute).toBe(false);
+    } finally {
+      await client.end();
+    }
+  });
+
+  it('direct idempotency table access denied', async () => {
+    const { Client } = await import('pg');
+    const connectionString = process.env.DATABASE_URL ?? process.env.SUPABASE_DB_URL;
+    const client = new Client({ connectionString });
+
+    await client.connect();
+    try {
+      const result = await client.query(
+        "SELECT has_table_privilege('anon', 'public.idempotency_keys', 'select,insert,update,delete') AS anon_access, has_table_privilege('authenticated', 'public.idempotency_keys', 'select,insert,update,delete') AS auth_access;",
+      );
+      expect(result.rows[0]?.anon_access).toBe(false);
+      expect(result.rows[0]?.auth_access).toBe(false);
+    } finally {
+      await client.end();
+    }
+  });
+
+  it('security migration applies cleanly in a disposable test database', async () => {
+    const { Client } = await import('pg');
+    const connectionString = process.env.DATABASE_URL ?? process.env.SUPABASE_DB_URL;
+    const client = new Client({ connectionString });
+
+    await client.connect();
+    try {
+      const migrationFiles = readdirSync(join(process.cwd(), 'supabase/migrations')).sort();
+      for (const filename of migrationFiles) {
+        const sql = readFileSync(join(process.cwd(), 'supabase/migrations', filename), 'utf8');
+        await client.query(sql);
+      }
+
+      const result = await client.query(
+        "SELECT relrowsecurity FROM pg_class WHERE relname = 'idempotency_keys' AND relnamespace = (SELECT oid FROM pg_namespace WHERE nspname = 'public');",
+      );
+      expect(result.rows[0]?.relrowsecurity).toBe(true);
+    } finally {
+      await client.end();
+    }
   });
 });

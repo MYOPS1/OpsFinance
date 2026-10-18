@@ -40,26 +40,10 @@ grant execute on function public.post_accounting_transaction_atomic(
 )
 to authenticated;
 
-grant execute on function public.get_accounting_idempotency(uuid, text, text)
-to service_role;
-
-grant execute on function public.post_accounting_transaction_atomic(
-  uuid,
-  text,
-  text,
-  date,
-  text,
-  text,
-  numeric,
-  uuid,
-  uuid,
-  text,
-  text,
-  jsonb
-)
-to service_role;
-
-grant all on table public.idempotency_keys to service_role;
+-- No service-role grants are added here. The SECURITY DEFINER owner executes with
+-- the privileged Postgres role and the app path is intentionally limited to the
+-- authenticated atomic posting RPC. If a separate direct-access dependency is
+-- proven later, it should be added with the smallest explicit grant necessary.
 
 -- RLS is enabled only after validating the SECURITY DEFINER ownership model.
 -- The definer function remains the only sanctioned writer for this table and the

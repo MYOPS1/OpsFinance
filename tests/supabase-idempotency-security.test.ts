@@ -163,7 +163,9 @@ describe('accounting idempotency security migration', () => {
     );
     expect(securityMigration).toMatch(/alter table public\.idempotency_keys enable row level security/i);
     expect(securityMigration).toMatch(/create policy "idempotency_keys_no_direct_access"/i);
-    expect(securityMigration).toMatch(/grant all on table public\.idempotency_keys to service_role/i);
+    expect(securityMigration).not.toMatch(/grant all on table public\.idempotency_keys to service_role/i);
+    expect(securityMigration).not.toMatch(/grant execute on function public\.get_accounting_idempotency\(uuid,\s*text,\s*text\)\s+to service_role/i);
+    expect(securityMigration).not.toMatch(/grant execute on function public\.post_accounting_transaction_atomic\([\s\S]*?\)\s+to service_role/i);
   });
 
   it('keeps the atomic posting RPC signature compatible', () => {

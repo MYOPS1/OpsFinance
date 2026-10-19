@@ -108,4 +108,25 @@ describe('Phase 10A supabase foundation', () => {
     expect(migration).toContain("set search_path = ''");
     expect(migration).toContain('idempotency_key');
   });
+
+  it('keeps idempotency table access behind authenticated RPC execution only', () => {
+    const migration = readFileSync(join(process.cwd(), 'supabase/migrations/016_security_hardening_idempotency_and_rpcs.sql'), 'utf8');
+
+    expect(migration).toContain('revoke all on table public.idempotency_keys from service_role;');
+    expect(migration).toContain('grant execute on function public.get_accounting_idempotency');
+    expect(migration).toContain('grant execute on function public.post_accounting_transaction_atomic');
+    expect(migration).toContain("security definer");
+    expect(migration).toContain("set search_path = ''");
+    expect(migration).not.toContain('GRANT ALL ON TABLE public.idempotency_keys TO service_role');
+    expect(migration).not.toContain('grant all on table public.idempotency_keys to service_role');
+  });
+
+  it('requires authenticated business membership for idempotency lookups and atomic posting RPCs', () => {
+    const migration = readFileSync(join(process.cwd(), 'supabase/migrations/016_security_hardening_idempotency_and_rpcs.sql'), 'utf8');
+
+    expect(migration).toContain("if v_user_id is null then\n    raise exception 'Authentication required';");
+    expect(migration).toContain("if not exists (\n    select 1\n    from public.business_members bm\n    where bm.business_id = p_business_id\n      and bm.user_id = v_user_id\n  ) then\n    raise exception 'Business access denied';");
+    expect(migration).toContain('p_idempotency_key');
+    expect(migration).toContain('p_business_id');
+  });
 });

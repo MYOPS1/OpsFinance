@@ -2,6 +2,8 @@ import { describe, expect, it } from 'vitest';
 import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
+import { SupabaseIdempotencyRepository } from '../packages/supabase-persistence';
+
 const migration = readFileSync(
   join(process.cwd(), 'supabase/migrations/006_secure_accounting_idempotency.sql'),
   'utf8',
@@ -172,6 +174,24 @@ describe('accounting idempotency security migration', () => {
     expect(securityMigration).toMatch(/public\.post_accounting_transaction_atomic\s*\(/i);
     expect(securityMigration).toMatch(
       /uuid\s*,\s*text\s*,\s*text\s*,\s*date\s*,\s*text\s*,\s*text\s*,\s*numeric\s*,\s*uuid\s*,\s*uuid\s*,\s*text\s*,\s*text\s*,\s*jsonb/i,
+    );
+  });
+
+  it('disables direct client idempotency checks instead of hitting the revoked RPC', async () => {
+    const repo = new SupabaseIdempotencyRepository({
+      from: () => {
+        throw new Error('table access should be disabled');
+      },
+      rpc: () => {
+        throw new Error('revoked get_accounting_idempotency RPC should not be called');
+      },
+    } as any);
+
+    await expect(repo.get('business-1', 'abc')).rejects.toThrow(
+      /Direct idempotency lookup is disabled/i,
+    );
+    await expect(repo.reserve('business-1', 'abc', 'result-1')).rejects.toThrow(
+      /Direct idempotency reservation is disabled/i,
     );
   });
 });

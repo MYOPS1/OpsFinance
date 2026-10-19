@@ -455,50 +455,21 @@ export class SupabaseAccountingPeriodRepository extends SupabaseRepositoryAdapte
 export class SupabaseIdempotencyRepository {
   constructor(private readonly client: SupabaseClientLike) {}
 
-  async get(businessId: string, idempotencyKey: string, operationType = 'ACCOUNTING_POST'): Promise<{ resultId?: string } | null> {
-    const scope = sanitizeBusinessId(businessId);
-    const trimmedKey = String(idempotencyKey ?? '').trim();
-    if (!trimmedKey) {
-      return null;
-    }
-
-    const { data, error } = await (this.client as any).rpc('get_accounting_idempotency', {
-      p_business_id: scope,
-      p_idempotency_key: trimmedKey,
-      p_operation_type: operationType,
-    });
-
-    if (error) {
-      throw new Error(error.message ?? 'Supabase idempotency lookup failed.');
-    }
-
-    if (data == null || data === '') {
-      return null;
-    }
-
-    return { resultId: String(data) };
+  async get(_businessId: string, _idempotencyKey: string, _operationType = 'ACCOUNTING_POST'): Promise<{ resultId?: string } | null> {
+    throw new Error(
+      'Direct idempotency lookup is disabled. Use the authenticated atomic posting RPC or the backend-owned security definer path only.',
+    );
   }
 
   async reserve(
-    businessId: string,
-    idempotencyKey: string,
-    resultId: string,
-    operationType = 'ACCOUNTING_POST',
-    resultType = 'TRANSACTION',
+    _businessId: string,
+    _idempotencyKey: string,
+    _resultId: string,
+    _operationType = 'ACCOUNTING_POST',
+    _resultType = 'TRANSACTION',
   ): Promise<{ resultId: string; idempotent: boolean }> {
-    const scope = sanitizeBusinessId(businessId);
-    const trimmedKey = String(idempotencyKey ?? '').trim();
-    if (!trimmedKey) {
-      throw new Error('Idempotency key is required.');
-    }
-
-    const existing = await this.get(scope, trimmedKey, operationType);
-    if (existing?.resultId) {
-      return { resultId: existing.resultId, idempotent: true };
-    }
-
     throw new Error(
-      'Direct idempotency reservation is disabled. Use the authenticated post_accounting_transaction_atomic RPC to create or reuse journal rows safely.',
+      'Direct idempotency reservation is disabled. Use the authenticated atomic posting RPC or the backend-owned security definer path only.',
     );
   }
 }

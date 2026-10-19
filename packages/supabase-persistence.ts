@@ -455,67 +455,22 @@ export class SupabaseAccountingPeriodRepository extends SupabaseRepositoryAdapte
 export class SupabaseIdempotencyRepository {
   constructor(private readonly client: SupabaseClientLike) {}
 
-  async get(businessId: string, idempotencyKey: string, operationType = 'ACCOUNTING_POST'): Promise<{ resultId?: string } | null> {
-    const scope = sanitizeBusinessId(businessId);
-    const trimmedKey = String(idempotencyKey ?? '').trim();
-    if (!trimmedKey) {
-      return null;
-    }
-
-    const result = await (this.client.from('idempotency_keys') as any)
-      .select('result_id')
-      .eq('business_id', scope)
-      .eq('idempotency_key', trimmedKey)
-      .eq('operation_type', operationType)
-      .order('created_at', { ascending: false })
-      .limit(1)
-      .maybeSingle();
-
-    if (result.error) {
-      throw new Error(result.error.message ?? 'Supabase idempotency lookup failed.');
-    }
-
-    if (!result.data) {
-      return null;
-    }
-
-    return { resultId: result.data.result_id ?? undefined };
+  async get(_businessId: string, _idempotencyKey: string, _operationType = 'ACCOUNTING_POST'): Promise<{ resultId?: string } | null> {
+    throw new Error(
+      'Direct idempotency lookup is disabled. Use the authenticated atomic posting RPC or the backend-owned security definer path only.',
+    );
   }
 
   async reserve(
-    businessId: string,
-    idempotencyKey: string,
-    resultId: string,
-    operationType = 'ACCOUNTING_POST',
-    resultType = 'TRANSACTION',
+    _businessId: string,
+    _idempotencyKey: string,
+    _resultId: string,
+    _operationType = 'ACCOUNTING_POST',
+    _resultType = 'TRANSACTION',
   ): Promise<{ resultId: string; idempotent: boolean }> {
-    const scope = sanitizeBusinessId(businessId);
-    const trimmedKey = String(idempotencyKey ?? '').trim();
-    if (!trimmedKey) {
-      throw new Error('Idempotency key is required.');
-    }
-
-    const existing = await this.get(scope, trimmedKey, operationType);
-    if (existing?.resultId) {
-      return { resultId: existing.resultId, idempotent: true };
-    }
-
-    const insert = await (this.client.from('idempotency_keys') as any)
-      .insert({
-        business_id: scope,
-        idempotency_key: trimmedKey,
-        operation_type: operationType,
-        result_type: resultType,
-        result_id: resultId,
-      })
-      .select()
-      .single();
-
-    if (insert.error) {
-      throw new Error(insert.error.message ?? 'Supabase idempotency registration failed.');
-    }
-
-    return { resultId, idempotent: false };
+    throw new Error(
+      'Direct idempotency reservation is disabled. Use the authenticated atomic posting RPC or the backend-owned security definer path only.',
+    );
   }
 }
 

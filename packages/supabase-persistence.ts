@@ -105,12 +105,23 @@ export class SupabaseRepositoryAdapter<T extends BusinessScopedRecord> {
     return (result.data?.[0] ?? input) as T;
   }
 
-  async update(id: string, patch: Partial<T>): Promise<T> {
-    const result = await (this.client.from(this.tableName) as any).update(patch).eq('id', id).select();
+  async update(id: string, patch: Partial<T>, businessId?: string): Promise<T> {
+    if ('id' in patch || 'business_id' in patch || 'businessId' in patch) {
+      throw new Error('Record identity and ownership cannot be changed.');
+    }
+    const scope = this.businessKey === 'business_id' ? sanitizeBusinessId(businessId) : null;
+    let query = (this.client.from(this.tableName) as any).update(patch).eq('id', id);
+    if (scope) {
+      query = query.eq('business_id', scope);
+    }
+    const result = await query.select();
     if (result.error) {
       throw new Error(result.error.message ?? 'Supabase repository update failed.');
     }
-    return (result.data?.[0] ?? ({ ...patch, id } as T)) as T;
+    if (!result.data?.[0]) {
+      throw new Error('Record not found for this business.');
+    }
+    return result.data[0] as T;
   }
 }
 
@@ -477,9 +488,13 @@ export class SupabaseTransactionRepository extends SupabaseRepositoryAdapter<Tra
       updated_at: input.updatedAt ?? new Date().toISOString(),
     };
 
-    const result = await (this['client'] as any).from('transactions').upsert(payload, { onConflict: 'id' }).select().single();
+    sanitizeBusinessId(input.businessId);
+    const result = await (this['client'] as any).from('transactions').insert(payload).select().single();
     if (result.error) {
       throw new Error(result.error.message ?? 'Supabase transaction insert failed.');
+    }
+    if (!result.data || result.data.business_id !== input.businessId) {
+      throw new Error('Business access denied.');
     }
     return result.data as TransactionRecord;
   }

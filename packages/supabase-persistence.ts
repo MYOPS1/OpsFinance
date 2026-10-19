@@ -109,9 +109,10 @@ export class SupabaseRepositoryAdapter<T extends BusinessScopedRecord> {
     if ('id' in patch || 'business_id' in patch || 'businessId' in patch) {
       throw new Error('Record identity and ownership cannot be changed.');
     }
+    const scope = this.businessKey === 'business_id' ? sanitizeBusinessId(businessId) : null;
     let query = (this.client.from(this.tableName) as any).update(patch).eq('id', id);
-    if (this.businessKey === 'business_id') {
-      query = query.eq('business_id', sanitizeBusinessId(businessId));
+    if (scope) {
+      query = query.eq('business_id', scope);
     }
     const result = await query.select();
     if (result.error) {

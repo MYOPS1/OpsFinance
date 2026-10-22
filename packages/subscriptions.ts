@@ -173,6 +173,25 @@ const TRIAL_RESTRICTED_FEATURES = new Set<BillingFeature>([
   'reconciliation',
 ]);
 
+const CORE_ACCOUNTING_FEATURES = new Set<BillingFeature>([
+  'dashboard',
+  'transactions',
+  'accounts',
+  'upload_and_convert',
+  'reports',
+  'reports_view',
+  'report_print',
+  'report_download',
+  'report_export',
+  'account_statement_view',
+  'account_statement_print',
+  'account_statement_download',
+  'account_statement_export',
+  'reconciliation',
+  'settings',
+  'accounting_rules',
+]);
+
 export class SubscriptionService {
   private readonly subscriptions = new Map<string, SubscriptionRecord>();
   private readonly businessSubscriptionById = new Map<string, string>();
@@ -186,6 +205,14 @@ export class SubscriptionService {
 
   constructor(config: Partial<BillingConfiguration> = {}) {
     this.config = { ...DEFAULT_BILLING_CONFIGURATION, ...config };
+  }
+
+  private isBillingEnforced(): boolean {
+    return this.config.providerConfigured === true;
+  }
+
+  private isCoreAccountingFeature(feature: BillingFeature): boolean {
+    return CORE_ACCOUNTING_FEATURES.has(feature);
   }
 
   getConfig(): BillingConfiguration {
@@ -435,6 +462,17 @@ export class SubscriptionService {
 
   assertFeatureAccess(businessId: string, feature: BillingFeature, actor: string, operation: AccessOperation = 'WRITE'): void {
     const subscription = this.getBusinessSubscription(businessId, actor);
+
+    if (!this.isBillingEnforced()) {
+      this.setAuditEvent(subscription.id, businessId, actor, 'feature_access_checked', feature, {
+        allowed: true,
+        feature,
+        operation,
+        billing_disabled: true,
+      });
+      return;
+    }
+
     const definition = this.getPlanDefinition(subscription.plan);
 
     this.syncSubscriptionLifecycle(subscription);

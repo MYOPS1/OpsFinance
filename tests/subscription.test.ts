@@ -59,15 +59,19 @@ describe('Phase 8 subscription and billing', () => {
     expect(() => service.addBusinessMember('business-a', 'user-b')).toThrow('Starter plan allows only one active user on the business.');
   });
 
-  it('enforces feature access centrally and blocks unauthorized future-plan features', () => {
+  it('allows core accounting features when billing is not configured and keeps the gate available for future provider-backed deployments', () => {
     const service = new SubscriptionService();
     service.registerBusiness('business-a', 'user-a');
 
     expect(service.getBusinessSubscription('business-a').plan).toBe('STARTER');
-    expect(() => service.assertFeatureAccess('business-a', 'multi_business', 'user-a')).toThrow();
-    expect(() => service.assertFeatureAccess('business-a', 'advanced_ai', 'user-a')).toThrow();
+    expect(() => service.assertFeatureAccess('business-a', 'multi_business', 'user-a')).not.toThrow();
+    expect(() => service.assertFeatureAccess('business-a', 'advanced_ai', 'user-a')).not.toThrow();
     expect(() => service.assertFeatureAccess('business-a', 'reports', 'user-a')).not.toThrow();
     expect(() => service.assertFeatureAccess('business-a', 'upload_and_convert', 'user-a')).not.toThrow();
+
+    const gated = new SubscriptionService({ providerConfigured: true });
+    gated.registerBusiness('business-b', 'user-b');
+    expect(() => gated.assertFeatureAccess('business-b', 'multi_business', 'user-b')).toThrow('Feature access denied.');
   });
 
   it('tracks payment state, history, and idempotent events', () => {
@@ -184,8 +188,8 @@ describe('Phase 8 subscription and billing', () => {
     expect(events).toHaveLength(1);
   });
 
-  it('enforces server-side business and plan state for client-supplied values', () => {
-    const service = new SubscriptionService();
+  it('enforces server-side business and plan state for client-supplied values when billing is configured', () => {
+    const service = new SubscriptionService({ providerConfigured: true });
     const subscription = service.registerBusiness('business-a', 'user-a');
 
     expect(service.getBusinessSubscription('business-a').plan).toBe('STARTER');
@@ -251,8 +255,8 @@ describe('Phase 8 subscription and billing', () => {
     expect(() => service.assertFeatureAccess('business-b', 'reports', 'attacker')).toThrow('Business access denied.');
   });
 
-  it('allows suspended reads but blocks protected writes and records denial', () => {
-    const service = new SubscriptionService();
+  it('allows suspended reads and records denials only when billing is enforcing the plan', () => {
+    const service = new SubscriptionService({ providerConfigured: true });
     const subscription = service.registerBusiness('business-a', 'owner-a');
     service.transitionStatus(subscription.id, 'PAST_DUE', 'owner-a');
     service.transitionStatus(subscription.id, 'GRACE_PERIOD', 'owner-a');
@@ -326,7 +330,7 @@ describe('Phase 8 subscription and billing', () => {
     })).toThrow('Business access denied.');
   });
 
-  it('gives every new business a 7-day free trial and blocks paid-only features during the trial', () => {
+  it('tracks the trial state without blocking core accounting when billing is disabled', () => {
     const service = new SubscriptionService();
     const subscription = service.registerBusiness('business-trial', 'owner-trial');
 
@@ -334,14 +338,20 @@ describe('Phase 8 subscription and billing', () => {
     expect(subscription.trialEndsAt).toBeTruthy();
     expect(service.getTrialState('business-trial', 'owner-trial').isActive).toBe(true);
 
-    expect(() => service.assertFeatureAccess('business-trial', 'report_print', 'owner-trial')).toThrow('Feature access denied.');
-    expect(() => service.assertFeatureAccess('business-trial', 'report_export', 'owner-trial')).toThrow('Feature access denied.');
-    expect(() => service.assertFeatureAccess('business-trial', 'reconciliation', 'owner-trial')).toThrow('Feature access denied.');
+    expect(() => service.assertFeatureAccess('business-trial', 'report_print', 'owner-trial')).not.toThrow();
+    expect(() => service.assertFeatureAccess('business-trial', 'report_export', 'owner-trial')).not.toThrow();
+    expect(() => service.assertFeatureAccess('business-trial', 'reconciliation', 'owner-trial')).not.toThrow();
     expect(() => service.assertFeatureAccess('business-trial', 'reports', 'owner-trial', 'READ')).not.toThrow();
     expect(() => service.assertFeatureAccess('business-trial', 'account_statement_view', 'owner-trial', 'READ')).not.toThrow();
+
+    const gated = new SubscriptionService({ providerConfigured: true });
+    const gatedSub = gated.registerBusiness('business-trial-gated', 'owner-trial-gated');
+    expect(() => gated.assertFeatureAccess('business-trial-gated', 'report_print', 'owner-trial-gated')).toThrow('Feature access denied.');
+    expect(() => gated.assertFeatureAccess('business-trial-gated', 'reconciliation', 'owner-trial-gated')).toThrow('Feature access denied.');
+    expect(gated.getBusinessSubscription('business-trial-gated', 'owner-trial-gated').id).toBe(gatedSub.id);
   });
 
-  it('expires the 7-day trial without deleting data and keeps paid-only actions restricted until payment succeeds', () => {
+  it('keeps the trial lifecycle visible without blocking access when billing is disabled, and re-enables gating when a provider is configured', () => {
     const service = new SubscriptionService();
     const subscription = service.registerBusiness('business-expired', 'owner-expired');
     const record = (service as any).subscriptions.get(subscription.id);
@@ -349,12 +359,20 @@ describe('Phase 8 subscription and billing', () => {
 
     expect(service.getBusinessSubscription('business-expired', 'owner-expired').status).toBe('PAST_DUE');
     expect(service.getTrialState('business-expired', 'owner-expired').isActive).toBe(false);
-    expect(() => service.assertFeatureAccess('business-expired', 'report_download', 'owner-expired')).toThrow('Feature access denied.');
-
-    service.initiatePayment(subscription.id, 'INV-TRIAL-CLEAR', '29.00', 'MYR', 'owner-expired', 'evt-trial-clear');
-    service.recordPaymentStatus(subscription.id, 'evt-trial-clear', 'PAID', 'owner-expired');
-
-    expect(service.getBusinessSubscription('business-expired', 'owner-expired').status).toBe('ACTIVE');
     expect(() => service.assertFeatureAccess('business-expired', 'report_download', 'owner-expired')).not.toThrow();
+
+    const gated = new SubscriptionService({ providerConfigured: true });
+    const gatedSub = gated.registerBusiness('business-expired-gated', 'owner-expired-gated');
+    const gatedRecord = (gated as any).subscriptions.get(gatedSub.id);
+    gatedRecord.trialEndsAt = new Date(Date.now() - 60 * 1000).toISOString();
+
+    expect(gated.getBusinessSubscription('business-expired-gated', 'owner-expired-gated').status).toBe('PAST_DUE');
+    expect(() => gated.assertFeatureAccess('business-expired-gated', 'report_download', 'owner-expired-gated')).toThrow('Feature access denied.');
+
+    gated.initiatePayment(gatedSub.id, 'INV-TRIAL-CLEAR', '29.00', 'MYR', 'owner-expired-gated', 'evt-trial-clear');
+    gated.recordPaymentStatus(gatedSub.id, 'evt-trial-clear', 'PAID', 'owner-expired-gated');
+
+    expect(gated.getBusinessSubscription('business-expired-gated', 'owner-expired-gated').status).toBe('ACTIVE');
+    expect(() => gated.assertFeatureAccess('business-expired-gated', 'report_download', 'owner-expired-gated')).not.toThrow();
   });
 });

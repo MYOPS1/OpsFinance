@@ -53,68 +53,49 @@ export default function LoginPage() {
   };
 
   return (
-    <main className="tenant-auth-viewport">
+    <main className="opsfinance-login-viewport">
       <h1 className="sr-only">Login</h1>
-      <div className="tenant-auth-shell">
-        <section className="tenant-auth-visual">
-          <div className="tenant-auth-brand">
-            <div className="tenant-brand-mark">
-              <Image src="/favicon.svg" alt="MYOPS brand mark" width={32} height={32} />
-            </div>
-            <span>MYOPS</span>
+      <div className="opsfinance-login-card">
+        <header className="opsfinance-login-brand" aria-label="OpsFinance logo">
+          <div className="opsfinance-login-mark">
+            <Image src="/favicon.svg" alt="OpsFinance logo" width={28} height={28} priority />
+          </div>
+        </header>
+
+        <div className="opsfinance-login-visual" aria-label="Finance dashboard illustration">
+          <Image
+            src="/opsone-reference.png"
+            alt="Professional accounting dashboard illustration"
+            className="opsfinance-login-illustration"
+            width={780}
+            height={780}
+            priority
+          />
+        </div>
+
+        <form onSubmit={handleSubmit} method="post" className="opsfinance-login-form">
+          <div className="opsfinance-login-field">
+            <label htmlFor="email">Email</label>
+            <input id="email" type="email" name="email" autoComplete="email" />
           </div>
 
-          <div className="tenant-auth-illustration" aria-label="OpsFinance product card artwork">
-            <div className="tenant-auth-art-frame">
-              <Image
-                src="/opsone-reference.png"
-                alt="OpsFinance product card illustration"
-                className="tenant-auth-art"
-                width={760}
-                height={760}
-                priority
-              />
-            </div>
+          <div className="opsfinance-login-field">
+            <label htmlFor="password">Password</label>
+            <input id="password" type="password" name="password" autoComplete="current-password" />
           </div>
 
-          <div className="tenant-auth-copy">
-            <div className="eyebrow">OpsFinance</div>
-            <h1>Unified operational finance.</h1>
-            <p>Track cash flow, accounting records, and business operations with a clean workspace built for modern teams.</p>
-          </div>
+          <button type="submit" className="opsfinance-login-button" disabled={pending}>
+            {pending ? 'Signing in...' : 'Sign in'}
+          </button>
+        </form>
 
-          <Image src="/myops-logo-wordmark.png" alt="MYOPS logo" className="tenant-brand-logo" width={320} height={120} />
-        </section>
+        {status ? <p className="opsfinance-login-message success">{status}</p> : null}
+        {error ? <p className="opsfinance-login-message error">{error}</p> : null}
 
-        <section className="tenant-auth-form-panel">
-          <div className="tenant-auth-card">
-            <h2>Welcome back</h2>
-            <p>Sign in to continue to your OpsFinance workspace.</p>
-
-            <form onSubmit={handleSubmit} method="post" className="tenant-form">
-              <div className="tenant-field">
-                <label htmlFor="email">Email</label>
-                <input id="email" type="email" name="email" autoComplete="email" />
-              </div>
-
-              <div className="tenant-field">
-                <label htmlFor="password">Password</label>
-                <input id="password" type="password" name="password" autoComplete="current-password" />
-              </div>
-
-              <button type="submit" className="brand-button" disabled={pending}>
-                {pending ? 'Signing in...' : 'Sign in'}
-              </button>
-            </form>
-
-            {status ? <p className="tenant-inline-message status">{status}</p> : null}
-            {error ? <p className="tenant-inline-message error">{error}</p> : null}
-
-            <div className="tenant-auth-footer">
-              <span>Need an account? <Link href="/register">Create one</Link></span>
-            </div>
-          </div>
-        </section>
+        <div className="opsfinance-login-links">
+          <Link href="/login?forgot=1">Forgot Password</Link>
+          <Link href="/register">Register / Create Account</Link>
+        </div>
       </div>
     </main>
   );

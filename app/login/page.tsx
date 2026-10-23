@@ -64,67 +64,16 @@ export default function LoginPage() {
             <span>MYOPS</span>
           </div>
 
-          <div className="tenant-auth-illustration" aria-label="OpsFinance dashboard product card illustration">
-            <div className="tenant-product-surface">
-              <div className="tenant-surface-header">
-                <span className="tenant-dot" />
-                <span className="tenant-dot" />
-                <span className="tenant-dot" />
-              </div>
-
-              <div className="tenant-product-window">
-                <div className="tenant-karma-row">
-                  <div className="tenant-metric-pill accent-pink">
-                    <span>Revenue</span>
-                    <strong>RM 48.2k</strong>
-                  </div>
-                  <div className="tenant-metric-pill accent-gold">
-                    <span>Expenses</span>
-                    <strong>RM 21.5k</strong>
-                  </div>
-                </div>
-
-                <div className="tenant-chart-panel">
-                  <div className="tenant-chart-bars" aria-hidden="true">
-                    <span style={{ height: '32%' }} />
-                    <span style={{ height: '48%' }} />
-                    <span style={{ height: '67%' }} />
-                    <span style={{ height: '58%' }} />
-                    <span style={{ height: '89%' }} />
-                    <span style={{ height: '72%' }} />
-                    <span style={{ height: '100%' }} />
-                  </div>
-                  <div className="tenant-ring">
-                    <div className="tenant-ring-inner">
-                      <strong>76%</strong>
-                    </div>
-                  </div>
-                </div>
-
-                <div className="tenant-summary-row">
-                  <div className="tenant-summary-card soft">
-                    <span>Cash</span>
-                    <strong>RM 26.7k</strong>
-                  </div>
-                  <div className="tenant-summary-card">
-                    <span>Growth</span>
-                    <strong>+12.4%</strong>
-                  </div>
-                </div>
-              </div>
-            </div>
-
-            <div className="tenant-floating-card top-left">
-              <span>Cash balance</span>
-              <strong>RM 63,240</strong>
-            </div>
-            <div className="tenant-floating-card bottom-left">
-              <span>Invoices</span>
-              <strong>12 new</strong>
-            </div>
-            <div className="tenant-floating-card bottom-right">
-              <span>Trend</span>
-              <strong>+18.2%</strong>
+          <div className="tenant-auth-illustration" aria-label="OpsFinance product card artwork">
+            <div className="tenant-auth-art-frame">
+              <Image
+                src="/opsone-reference.png"
+                alt="OpsFinance product card illustration"
+                className="tenant-auth-art"
+                width={760}
+                height={760}
+                priority
+              />
             </div>
           </div>
 

@@ -306,6 +306,31 @@ button, input, textarea, select {
   bottom: 14px;
 }
 
+.tenant-auth-illustration {
+  position: relative;
+  display: grid;
+  place-items: center;
+  min-height: 420px;
+  padding: 20px;
+}
+
+.tenant-auth-art-frame {
+  position: relative;
+  width: min(100%, 540px);
+  border-radius: 30px;
+  overflow: hidden;
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.85), rgba(255, 243, 247, 0.84));
+  box-shadow: 0 28px 56px rgba(18, 21, 52, 0.12);
+  border: 1px solid rgba(18, 21, 52, 0.06);
+}
+
+.tenant-auth-art {
+  display: block;
+  width: 100%;
+  height: auto;
+  object-fit: contain;
+}
+
 .tenant-brand-logo {
   width: min(320px, 80%);
   margin-top: 24px;

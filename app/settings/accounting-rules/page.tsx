@@ -1,11 +1,16 @@
 import { redirect } from 'next/navigation';
 
+import { isPreviewAuthBypassEnabled } from '../../../lib/auth/navigation';
 import { AuthenticatedAppShell } from '../../../components/authenticated-shell';
 import { AccountingRulesSettings } from '../../../components/accounting-rules-settings';
 import { resolveCurrentBusinessForUser } from '../../../lib/auth/business';
 import { createSupabaseServerClient } from '../../../lib/supabase/server';
 
 export default async function AccountingRulesRoute() {
+  if (isPreviewAuthBypassEnabled()) {
+    redirect('/dashboard');
+  }
+
   const supabase = await createSupabaseServerClient();
   const {
     data: { user },
@@ -13,6 +18,12 @@ export default async function AccountingRulesRoute() {
   } = await supabase.auth.getUser();
 
   if (error || !user) {
+    if (isPreviewAuthBypassEnabled()) {
+      redirect('/dashboard');
+    }
+    if (isPreviewAuthBypassEnabled()) {
+      redirect('/dashboard');
+    }
     redirect('/login');
   }
 

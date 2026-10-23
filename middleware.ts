@@ -19,11 +19,6 @@ export async function middleware(request: NextRequest) {
       return NextResponse.redirect(new URL('/dashboard', request.url));
     }
 
-    const isProtectedPath = PROTECTED_PATH_PREFIXES.some((prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`));
-    if (isProtectedPath) {
-      return response;
-    }
-
     return response;
   }
 

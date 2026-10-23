@@ -14,6 +14,9 @@ export default async function OpsFinanceLandingPage() {
   } = await supabase.auth.getUser();
 
   if (!user) {
+    if (isPreviewAuthBypassEnabled()) {
+      redirect('/dashboard');
+    }
     redirect('/');
   }
 

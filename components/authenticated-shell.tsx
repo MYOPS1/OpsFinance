@@ -5,6 +5,7 @@ import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import React, { useEffect, useState } from 'react';
 
+import { isPreviewAuthBypassEnabled } from '../lib/auth/navigation';
 import { getSupabaseBrowserClient } from '../lib/supabase/client';
 
 type AuthenticatedAppShellProps = {
@@ -113,7 +114,7 @@ export function AuthenticatedAppShell({ children, businessName, userEmail }: Aut
     if (supabase) {
       await supabase.auth.signOut();
     }
-    router.push('/login');
+    router.push(isPreviewAuthBypassEnabled() ? '/dashboard' : '/login');
   };
 
   return (

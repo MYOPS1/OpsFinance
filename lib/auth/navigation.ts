@@ -37,6 +37,10 @@ export function navigateToDashboard(assign: (url: string) => void = (url) => win
   assign('/dashboard');
 }
 
+export function navigateToMyOpsHome(assign: (url: string) => void = (url) => window.location.replace(url)): void {
+  assign('/');
+}
+
 export function navigateToLogin(assign: (url: string) => void = (url) => window.location.replace(url)): void {
-  assign('/login?logout=1');
+  assign('/?logout=1');
 }

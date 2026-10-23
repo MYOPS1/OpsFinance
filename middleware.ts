@@ -2,6 +2,8 @@ import { createServerClient, type CookieOptions } from '@supabase/ssr';
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 
+import { getMyOpsAccessDecision } from './lib/auth/myops';
+
 const PUBLIC_PATHS = ['/login', '/register', '/auth/callback', '/opsfinance', '/'];
 const PROTECTED_PATH_PREFIXES = ['/dashboard', '/accounts', '/transactions', '/upload', '/reconciliation', '/reports', '/settings'];
 
@@ -14,7 +16,7 @@ export async function middleware(request: NextRequest) {
   if (!supabaseUrl || !supabaseKey) {
     const pathname = request.nextUrl.pathname;
     if (PROTECTED_PATH_PREFIXES.some((prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`))) {
-      return NextResponse.redirect(new URL('/login', request.url));
+      return NextResponse.redirect(new URL('/', request.url));
     }
     return response;
   }
@@ -33,8 +35,6 @@ export async function middleware(request: NextRequest) {
   });
 
   const pathname = request.nextUrl.pathname;
-  const isRootPath = pathname === '/';
-  const isMarketingPath = pathname === '/opsfinance' || pathname.startsWith('/opsfinance/');
   const isPublicPath = PUBLIC_PATHS.some((prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`));
   const isProtectedPath = PROTECTED_PATH_PREFIXES.some((prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`));
   const isBrowserNavigationRequest =
@@ -46,31 +46,40 @@ export async function middleware(request: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser();
 
-  if (isRootPath) {
-    if (user) {
-      return NextResponse.redirect(new URL('/dashboard', request.url));
-    }
-
-    if (isBrowserNavigationRequest) {
-      return response;
-    }
-
-    return NextResponse.redirect(new URL('/login', request.url));
+  if (pathname === '/login' && !user) {
+    return NextResponse.redirect(new URL('/', request.url));
   }
 
-  if (isMarketingPath) {
-    return response;
+  if (pathname === '/login' && user) {
+    return NextResponse.redirect(new URL('/', request.url));
+  }
+
+  if (pathname === '/opsfinance' && user) {
+    return NextResponse.redirect(new URL('/dashboard', request.url));
+  }
+
+  if (pathname === '/opsfinance' && !user) {
+    return NextResponse.redirect(new URL('/', request.url));
   }
 
   if (isProtectedPath && !user) {
-    return NextResponse.redirect(new URL('/login', request.url));
+    return NextResponse.redirect(new URL('/', request.url));
+  }
+
+  if (isPublicPath && user && pathname !== '/auth/callback') {
+    const decision = getMyOpsAccessDecision({ pathname, user, sessionExpired: false });
+    if (decision.redirectTo) {
+      return NextResponse.redirect(new URL(decision.redirectTo, request.url));
+    }
   }
 
   const wasSignedOut = request.nextUrl.searchParams.get('logout') === '1';
+  if (pathname === '/' && user && wasSignedOut) {
+    return response;
+  }
 
-  if (isPublicPath && user && pathname !== '/auth/callback' && !wasSignedOut) {
-    const redirectTarget = request.nextUrl.searchParams.get('redirect') ?? '/dashboard';
-    return NextResponse.redirect(new URL(redirectTarget, request.url));
+  if (pathname === '/' && !user && isBrowserNavigationRequest) {
+    return response;
   }
 
   return response;

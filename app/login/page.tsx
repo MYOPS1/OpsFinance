@@ -4,7 +4,7 @@ import Image from 'next/image';
 import Link from 'next/link';
 import { useState } from 'react';
 
-import { navigateToDashboard } from '../../lib/auth/navigation';
+import { navigateToMyOpsHome } from '../../lib/auth/navigation';
 import { normalizeAuthError } from '../../lib/auth/session';
 import { getSupabaseBrowserClient } from '../../lib/supabase/client';
 
@@ -45,7 +45,7 @@ export default function LoginPage() {
 
     if (data.session) {
       setStatus('Signed in successfully.');
-      navigateToDashboard();
+      navigateToMyOpsHome();
       return;
     }
 

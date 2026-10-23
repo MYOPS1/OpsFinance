@@ -229,6 +229,7 @@ export class FinancialReportService {
     let balance = DecimalMoney.zero();
     for (const journal of this.getPostedJournals(businessId)) {
       if (journal.journalDate > dateFrom) continue;
+      if (journal.journalDate === dateFrom && !this.shouldExcludeOpeningJournal(journal, dateFrom)) continue;
       for (const line of journal.lines) {
         if (line.accountId !== accountId) continue;
         balance = balance.add(this.getBalanceImpact(account, line));
@@ -239,7 +240,11 @@ export class FinancialReportService {
 
   private shouldExcludeOpeningJournal(journal: JournalEntry, dateFrom?: string): boolean {
     if (!dateFrom || journal.journalDate !== dateFrom) return false;
-    return journal.sourceType === 'SYSTEM' && journal.journalNo.startsWith('OB-');
+    if (journal.sourceType !== 'SYSTEM') return false;
+
+    const journalNo = (journal.journalNo ?? '').toUpperCase();
+    const description = (journal.description ?? '').toLowerCase();
+    return journalNo.startsWith('OB-') || journalNo.startsWith('OPEN-') || description.includes('opening balance');
   }
 
   private getRangeJournalLines(businessId: string, dateFrom?: string, dateTo?: string) {

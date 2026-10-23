@@ -160,47 +160,6 @@ const TRANSITIONS: Record<SubscriptionLifecycleStatus, SubscriptionLifecycleStat
   CANCELLED: [],
 };
 
-const TRIAL_ALLOWED_FEATURES = new Set<BillingFeature>([
-  'dashboard',
-  'transactions',
-  'accounts',
-  'upload_and_convert',
-  'reports',
-  'reports_view',
-  'account_statement_view',
-  'settings',
-  'accounting_rules',
-]);
-
-const TRIAL_RESTRICTED_FEATURES = new Set<BillingFeature>([
-  'report_print',
-  'report_download',
-  'report_export',
-  'account_statement_print',
-  'account_statement_download',
-  'account_statement_export',
-  'reconciliation',
-]);
-
-const CORE_ACCOUNTING_FEATURES = new Set<BillingFeature>([
-  'dashboard',
-  'transactions',
-  'accounts',
-  'upload_and_convert',
-  'reports',
-  'reports_view',
-  'report_print',
-  'report_download',
-  'report_export',
-  'account_statement_view',
-  'account_statement_print',
-  'account_statement_download',
-  'account_statement_export',
-  'reconciliation',
-  'settings',
-  'accounting_rules',
-]);
-
 export class SubscriptionService {
   private readonly subscriptions = new Map<string, SubscriptionRecord>();
   private readonly businessSubscriptionById = new Map<string, string>();
@@ -218,10 +177,6 @@ export class SubscriptionService {
 
   private isBillingEnforced(): boolean {
     return this.config.providerConfigured === true;
-  }
-
-  private isCoreAccountingFeature(feature: BillingFeature): boolean {
-    return CORE_ACCOUNTING_FEATURES.has(feature);
   }
 
   getConfig(): BillingConfiguration {
@@ -509,19 +464,13 @@ export class SubscriptionService {
     if (subscriptionId) {
       const subscription = this.getSubscription(subscriptionId);
       this.assertBusinessMember(subscription.businessId, actor);
-
-      if (!this.isBillingEnforced()) {
-        this.setAuditEvent(subscription.id, businessId, actor, 'feature_access_checked', feature, {
-          allowed: true,
-          feature,
-          operation,
-          billing_disabled: true,
-          standalone: true,
-        });
-        return;
-      }
-
-      this.setAuditEvent(subscription.id, businessId, actor, 'feature_access_checked', feature, { allowed: true, feature, operation, standalone: true });
+      this.setAuditEvent(subscription.id, businessId, actor, 'feature_access_checked', feature, {
+        allowed: true,
+        feature,
+        operation,
+        billing_disabled: true,
+        standalone: true,
+      });
       return;
     }
 

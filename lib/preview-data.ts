@@ -1,10 +1,62 @@
 import { AccountingEngine, type BusinessAccount } from '../packages/accounting';
 import { FinancialReportService } from '../packages/reports';
 
-export const PREVIEW_BUSINESS_ID = 'preview-business-0001';
+export const PREVIEW_BUSINESS_ID = '11111111-1111-4111-8111-111111111111';
 export const PREVIEW_BUSINESS_NAME = 'Preview business';
 export const PREVIEW_USER_EMAIL = 'preview@opsfinance.local';
-export const PREVIEW_USER_ID = 'preview-user-0001';
+export const PREVIEW_USER_ID = '22222222-2222-4222-8222-222222222222';
+
+const PREVIEW_ACCOUNT_UUIDS = {
+  cash: '33333333-3333-4333-8333-333333333333',
+  bank: '44444444-4444-4444-8444-444444444444',
+  ar: '55555555-5555-4555-8555-555555555555',
+  pp: '66666666-6666-4666-8666-666666666666',
+  ap: '77777777-7777-4777-8777-777777777777',
+  loan: '88888888-8888-4888-8888-888888888888',
+  equity: '99999999-9999-4999-8999-999999999999',
+  revenue: 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa',
+  rent: 'bbbbbbbb-bbbb-4bbb-8bbb-bbbbbbbbbbbb',
+  supplies: 'cccccccc-cccc-4ccc-8ccc-cccccccccccc',
+} as const;
+
+const PREVIEW_FINANCIAL_ACCOUNT_UUIDS = {
+  maybank: 'dddddddd-dddd-4ddd-8ddd-dddddddddddd',
+  cash: 'eeeeeeee-eeee-4eee-8eee-eeeeeeeeeeee',
+} as const;
+
+const PREVIEW_JOURNAL_UUIDS = {
+  sale: 'ffffffff-ffff-4fff-8fff-ffffffffffff',
+  rent: '01234567-89ab-4cde-8f01-23456789abcd',
+  supplies: '12345678-9abc-4def-8f12-3456789abcde',
+} as const;
+
+function createPreviewUuid(seed: string): string {
+  let hash = 2166136261;
+  for (let i = 0; i < seed.length; i += 1) {
+    hash ^= seed.charCodeAt(i);
+    hash = Math.imul(hash, 16777619);
+  }
+
+  let mixed = hash >>> 0;
+  const chars: string[] = [];
+  for (let i = 0; i < 32; i += 1) {
+    mixed = Math.imul(mixed ^ (i * 0x9e3779b1 + 0x85ebca6b), 0x85ebca6b) >>> 0;
+    chars.push((mixed & 0xff).toString(16).padStart(2, '0'));
+  }
+
+  const hex = chars.join('');
+  const versioned = hex.split('');
+  versioned[12] = '4';
+  versioned[16] = ['8', '9', 'a', 'b'][Math.abs(hash) % 4];
+
+  return [
+    versioned.slice(0, 8).join(''),
+    versioned.slice(8, 12).join(''),
+    versioned.slice(12, 16).join(''),
+    versioned.slice(16, 20).join(''),
+    versioned.slice(20, 32).join(''),
+  ].join('-');
+}
 
 export type PreviewBusinessRecord = {
   id: string;
@@ -121,26 +173,26 @@ function createSeedFinancialAccount(data: Partial<PreviewFinancialAccountRecord>
 function buildSeedStore(): PreviewStore {
   const now = new Date().toISOString();
   const accounts: PreviewAccountRecord[] = [
-    createSeedAccount({ id: 'acct-cash', business_id: PREVIEW_BUSINESS_ID, code: '1010', name: 'Cash', account_type: 'ASSET', normal_balance: 'DEBIT', is_system: true }),
-    createSeedAccount({ id: 'acct-bank', business_id: PREVIEW_BUSINESS_ID, code: '1020', name: 'Bank', account_type: 'ASSET', normal_balance: 'DEBIT', is_system: true }),
-    createSeedAccount({ id: 'acct-ar', business_id: PREVIEW_BUSINESS_ID, code: '1100', name: 'Accounts Receivable', account_type: 'ASSET', normal_balance: 'DEBIT' }),
-    createSeedAccount({ id: 'acct-pp', business_id: PREVIEW_BUSINESS_ID, code: '1500', name: 'Office Equipment', account_type: 'ASSET', normal_balance: 'DEBIT' }),
-    createSeedAccount({ id: 'acct-ap', business_id: PREVIEW_BUSINESS_ID, code: '2000', name: 'Accounts Payable', account_type: 'LIABILITY', normal_balance: 'CREDIT' }),
-    createSeedAccount({ id: 'acct-loan', business_id: PREVIEW_BUSINESS_ID, code: '2100', name: 'Loan Payable', account_type: 'LIABILITY', normal_balance: 'CREDIT' }),
-    createSeedAccount({ id: 'acct-equity', business_id: PREVIEW_BUSINESS_ID, code: '3000', name: 'Owner Equity', account_type: 'EQUITY', normal_balance: 'CREDIT', is_system: true }),
-    createSeedAccount({ id: 'acct-revenue', business_id: PREVIEW_BUSINESS_ID, code: '4000', name: 'Sales Revenue', account_type: 'REVENUE', normal_balance: 'CREDIT' }),
-    createSeedAccount({ id: 'acct-rent', business_id: PREVIEW_BUSINESS_ID, code: '5000', name: 'Rent Expense', account_type: 'EXPENSE', normal_balance: 'DEBIT' }),
-    createSeedAccount({ id: 'acct-supplies', business_id: PREVIEW_BUSINESS_ID, code: '5100', name: 'Office Supplies', account_type: 'EXPENSE', normal_balance: 'DEBIT' }),
+    createSeedAccount({ id: PREVIEW_ACCOUNT_UUIDS.cash, business_id: PREVIEW_BUSINESS_ID, code: '1010', name: 'Cash', account_type: 'ASSET', normal_balance: 'DEBIT', is_system: true }),
+    createSeedAccount({ id: PREVIEW_ACCOUNT_UUIDS.bank, business_id: PREVIEW_BUSINESS_ID, code: '1020', name: 'Bank', account_type: 'ASSET', normal_balance: 'DEBIT', is_system: true }),
+    createSeedAccount({ id: PREVIEW_ACCOUNT_UUIDS.ar, business_id: PREVIEW_BUSINESS_ID, code: '1100', name: 'Accounts Receivable', account_type: 'ASSET', normal_balance: 'DEBIT' }),
+    createSeedAccount({ id: PREVIEW_ACCOUNT_UUIDS.pp, business_id: PREVIEW_BUSINESS_ID, code: '1500', name: 'Office Equipment', account_type: 'ASSET', normal_balance: 'DEBIT' }),
+    createSeedAccount({ id: PREVIEW_ACCOUNT_UUIDS.ap, business_id: PREVIEW_BUSINESS_ID, code: '2000', name: 'Accounts Payable', account_type: 'LIABILITY', normal_balance: 'CREDIT' }),
+    createSeedAccount({ id: PREVIEW_ACCOUNT_UUIDS.loan, business_id: PREVIEW_BUSINESS_ID, code: '2100', name: 'Loan Payable', account_type: 'LIABILITY', normal_balance: 'CREDIT' }),
+    createSeedAccount({ id: PREVIEW_ACCOUNT_UUIDS.equity, business_id: PREVIEW_BUSINESS_ID, code: '3000', name: 'Owner Equity', account_type: 'EQUITY', normal_balance: 'CREDIT', is_system: true }),
+    createSeedAccount({ id: PREVIEW_ACCOUNT_UUIDS.revenue, business_id: PREVIEW_BUSINESS_ID, code: '4000', name: 'Sales Revenue', account_type: 'REVENUE', normal_balance: 'CREDIT' }),
+    createSeedAccount({ id: PREVIEW_ACCOUNT_UUIDS.rent, business_id: PREVIEW_BUSINESS_ID, code: '5000', name: 'Rent Expense', account_type: 'EXPENSE', normal_balance: 'DEBIT' }),
+    createSeedAccount({ id: PREVIEW_ACCOUNT_UUIDS.supplies, business_id: PREVIEW_BUSINESS_ID, code: '5100', name: 'Office Supplies', account_type: 'EXPENSE', normal_balance: 'DEBIT' }),
   ];
 
   const financialAccounts: PreviewFinancialAccountRecord[] = [
-    createSeedFinancialAccount({ id: 'fin-maybank', business_id: PREVIEW_BUSINESS_ID, name: 'Maybank Operating', type: 'BANK', account_code: 'MAY-001', currency: 'MYR', account_id: 'acct-bank' }),
-    createSeedFinancialAccount({ id: 'fin-cash', business_id: PREVIEW_BUSINESS_ID, name: 'Cash on Hand', type: 'CASH', account_code: 'CASH-001', currency: 'MYR', account_id: 'acct-cash' }),
+    createSeedFinancialAccount({ id: PREVIEW_FINANCIAL_ACCOUNT_UUIDS.maybank, business_id: PREVIEW_BUSINESS_ID, name: 'Maybank Operating', type: 'BANK', account_code: 'MAY-001', currency: 'MYR', account_id: PREVIEW_ACCOUNT_UUIDS.bank }),
+    createSeedFinancialAccount({ id: PREVIEW_FINANCIAL_ACCOUNT_UUIDS.cash, business_id: PREVIEW_BUSINESS_ID, name: 'Cash on Hand', type: 'CASH', account_code: 'CASH-001', currency: 'MYR', account_id: PREVIEW_ACCOUNT_UUIDS.cash }),
   ];
 
   const journalEntries: PreviewJournalEntryRecord[] = [
     {
-      id: 'journal-sale-001',
+      id: PREVIEW_JOURNAL_UUIDS.sale,
       business_id: PREVIEW_BUSINESS_ID,
       journal_no: 'JNL-2026-001',
       journal_date: '2026-10-01',
@@ -151,12 +203,12 @@ function buildSeedStore(): PreviewStore {
       created_at: now,
       updated_at: now,
       journal_lines: [
-        { id: 'line-sale-debit', journal_entry_id: 'journal-sale-001', account_id: 'acct-bank', debit: '12000.00', credit: '0.00', description: 'Cash collection', financial_account_id: 'fin-maybank', contact_id: null, created_at: now },
-        { id: 'line-sale-credit', journal_entry_id: 'journal-sale-001', account_id: 'acct-revenue', debit: '0.00', credit: '12000.00', description: 'Service revenue', financial_account_id: null, contact_id: null, created_at: now },
+        { id: `${PREVIEW_JOURNAL_UUIDS.sale}-line-1`, journal_entry_id: PREVIEW_JOURNAL_UUIDS.sale, account_id: PREVIEW_ACCOUNT_UUIDS.bank, debit: '12000.00', credit: '0.00', description: 'Cash collection', financial_account_id: PREVIEW_FINANCIAL_ACCOUNT_UUIDS.maybank, contact_id: null, created_at: now },
+        { id: `${PREVIEW_JOURNAL_UUIDS.sale}-line-2`, journal_entry_id: PREVIEW_JOURNAL_UUIDS.sale, account_id: PREVIEW_ACCOUNT_UUIDS.revenue, debit: '0.00', credit: '12000.00', description: 'Service revenue', financial_account_id: null, contact_id: null, created_at: now },
       ],
     },
     {
-      id: 'journal-rent-001',
+      id: PREVIEW_JOURNAL_UUIDS.rent,
       business_id: PREVIEW_BUSINESS_ID,
       journal_no: 'JNL-2026-002',
       journal_date: '2026-10-02',
@@ -167,12 +219,12 @@ function buildSeedStore(): PreviewStore {
       created_at: now,
       updated_at: now,
       journal_lines: [
-        { id: 'line-rent-debit', journal_entry_id: 'journal-rent-001', account_id: 'acct-rent', debit: '3000.00', credit: '0.00', description: 'Office rent', financial_account_id: 'fin-maybank', contact_id: null, created_at: now },
-        { id: 'line-rent-credit', journal_entry_id: 'journal-rent-001', account_id: 'acct-bank', debit: '0.00', credit: '3000.00', description: 'Bank payment', financial_account_id: 'fin-maybank', contact_id: null, created_at: now },
+        { id: `${PREVIEW_JOURNAL_UUIDS.rent}-line-1`, journal_entry_id: PREVIEW_JOURNAL_UUIDS.rent, account_id: PREVIEW_ACCOUNT_UUIDS.rent, debit: '3000.00', credit: '0.00', description: 'Office rent', financial_account_id: PREVIEW_FINANCIAL_ACCOUNT_UUIDS.maybank, contact_id: null, created_at: now },
+        { id: `${PREVIEW_JOURNAL_UUIDS.rent}-line-2`, journal_entry_id: PREVIEW_JOURNAL_UUIDS.rent, account_id: PREVIEW_ACCOUNT_UUIDS.bank, debit: '0.00', credit: '3000.00', description: 'Bank payment', financial_account_id: PREVIEW_FINANCIAL_ACCOUNT_UUIDS.maybank, contact_id: null, created_at: now },
       ],
     },
     {
-      id: 'journal-supplies-001',
+      id: PREVIEW_JOURNAL_UUIDS.supplies,
       business_id: PREVIEW_BUSINESS_ID,
       journal_no: 'JNL-2026-003',
       journal_date: '2026-10-03',
@@ -183,8 +235,8 @@ function buildSeedStore(): PreviewStore {
       created_at: now,
       updated_at: now,
       journal_lines: [
-        { id: 'line-supplies-debit', journal_entry_id: 'journal-supplies-001', account_id: 'acct-supplies', debit: '850.00', credit: '0.00', description: 'Office supplies', financial_account_id: 'fin-maybank', contact_id: null, created_at: now },
-        { id: 'line-supplies-credit', journal_entry_id: 'journal-supplies-001', account_id: 'acct-bank', debit: '0.00', credit: '850.00', description: 'Bank payment', financial_account_id: 'fin-maybank', contact_id: null, created_at: now },
+        { id: `${PREVIEW_JOURNAL_UUIDS.supplies}-line-1`, journal_entry_id: PREVIEW_JOURNAL_UUIDS.supplies, account_id: PREVIEW_ACCOUNT_UUIDS.supplies, debit: '850.00', credit: '0.00', description: 'Office supplies', financial_account_id: PREVIEW_FINANCIAL_ACCOUNT_UUIDS.maybank, contact_id: null, created_at: now },
+        { id: `${PREVIEW_JOURNAL_UUIDS.supplies}-line-2`, journal_entry_id: PREVIEW_JOURNAL_UUIDS.supplies, account_id: PREVIEW_ACCOUNT_UUIDS.bank, debit: '0.00', credit: '850.00', description: 'Bank payment', financial_account_id: PREVIEW_FINANCIAL_ACCOUNT_UUIDS.maybank, contact_id: null, created_at: now },
       ],
     },
   ];
@@ -288,7 +340,7 @@ export function getPreviewFinancialSnapshot() {
 
 export function createPreviewAccount(input: Partial<PreviewAccountRecord> & { code: string; name: string; account_type: string; normal_balance: string }) {
   const seed = getPreviewStore();
-  const id = input.id ?? `acct-${Date.now()}-${Math.random().toString(16).slice(2, 8)}`;
+  const id = input.id ?? createPreviewUuid(`preview-account:${input.code}:${input.name}:${Date.now()}`);
   const account: PreviewAccountRecord = {
     ...createSeedAccount({
       id,
@@ -310,7 +362,7 @@ export function createPreviewAccount(input: Partial<PreviewAccountRecord> & { co
 
 export function createPreviewFinancialAccount(input: Partial<PreviewFinancialAccountRecord> & { name: string; type: string; account_code: string; currency: string }) {
   const seed = getPreviewStore();
-  const id = input.id ?? `fin-${Date.now()}-${Math.random().toString(16).slice(2, 8)}`;
+  const id = input.id ?? createPreviewUuid(`preview-financial-account:${input.account_code}:${input.name}:${Date.now()}`);
   const account: PreviewFinancialAccountRecord = {
     ...createSeedFinancialAccount({
       id,
@@ -343,7 +395,7 @@ export function createPreviewTransaction(input: {
   const seed = getPreviewStore();
   const safeAmount = Number(input.amount ?? 0);
   const date = String(input.date ?? new Date().toISOString().slice(0, 10));
-  const entryId = `preview-transaction-${Date.now()}`;
+  const entryId = createPreviewUuid(`preview-transaction:${Date.now()}:${input.reference_no ?? input.description ?? 'preview'}`);
   const financialAccountId = input.financial_account_id ?? seed.financialAccounts[0]?.id ?? null;
   const accountId = input.account_id ?? seed.accounts[0]?.id ?? null;
   const description = input.description ?? 'Preview transaction';
@@ -364,9 +416,9 @@ export function createPreviewTransaction(input: {
     updated_at: new Date().toISOString(),
     journal_lines: [
       {
-        id: `${entryId}-line-1`,
+        id: createPreviewUuid(`preview-journal-line:${entryId}:debit`),
         journal_entry_id: entryId,
-        account_id: accountId ?? 'acct-bank',
+        account_id: accountId ?? PREVIEW_ACCOUNT_UUIDS.bank,
         debit: input.type === 'MONEY_OUT' ? String(safeAmount) : '0.00',
         credit: input.type === 'MONEY_IN' ? String(safeAmount) : '0.00',
         description,
@@ -375,9 +427,9 @@ export function createPreviewTransaction(input: {
         created_at: new Date().toISOString(),
       },
       {
-        id: `${entryId}-line-2`,
+        id: createPreviewUuid(`preview-journal-line:${entryId}:credit`),
         journal_entry_id: entryId,
-        account_id: financialAccountId ? 'acct-bank' : accountId ?? 'acct-bank',
+        account_id: financialAccountId ? PREVIEW_ACCOUNT_UUIDS.bank : accountId ?? PREVIEW_ACCOUNT_UUIDS.bank,
         debit: input.type === 'MONEY_IN' ? String(safeAmount) : '0.00',
         credit: input.type === 'MONEY_OUT' ? String(safeAmount) : '0.00',
         description,

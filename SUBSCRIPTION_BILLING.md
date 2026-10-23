@@ -86,7 +86,9 @@ Duplicate provider callbacks do not create duplicate payment records in the serv
 
 ## Feature entitlements
 
-Feature access is enforced centrally through the subscription service rather than UI-only checks. A business must be subscribed and active to use protected features. The service rejects unsupported features for Starter, including future-plan capabilities.
+OpsFinance is a standalone accounting application. Subscription billing remains in the codebase only as a compatibility layer and is intentionally disconnected from accounting authorization. Accounting features are not gated by subscription status, payment state, or trial expiry checks.
+
+The service rejects unsupported features for Starter only in the legacy billing model; standalone accounting access is evaluated through Supabase auth, business membership, tenant isolation, and RLS instead.
 
 ## Server-side enforcement and business isolation
 

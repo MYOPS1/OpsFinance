@@ -33,7 +33,7 @@ test.describe(E2E_ENVIRONMENT, () => {
     await expect(page.getByRole('navigation', { name: 'OpsFinance navigation' }).getByRole('link', { name: 'All Transactions' })).toBeVisible();
     await page.goto('/upload');
     await expect(page.getByRole('heading', { name: 'Upload & Convert' })).toBeVisible();
-    await page.goto('/settings/subscription');
-    await expect(page.getByRole('heading', { name: /OpsFinance current plan/i })).toBeVisible();
+    await page.goto('/settings/business');
+    await expect(page.getByRole('heading', { name: /Business Profile/i })).toBeVisible();
   });
 });

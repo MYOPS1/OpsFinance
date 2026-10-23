@@ -1,10 +1,5 @@
-import { AuthenticatedAppShell } from '../../../components/authenticated-shell';
-import { SubscriptionSettings } from '../../../components/subscription-settings';
+import { redirect } from 'next/navigation';
 
 export default function SubscriptionSettingsPage() {
-  return (
-    <AuthenticatedAppShell>
-      <SubscriptionSettings />
-    </AuthenticatedAppShell>
-  );
+  redirect('/settings/business');
 }

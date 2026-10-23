@@ -38,8 +38,8 @@ test.describe(E2E_ENVIRONMENT, () => {
     await page.goto('/settings', { waitUntil: 'networkidle' });
     await expect(page.getByRole('heading', { name: 'Settings' })).toBeVisible();
 
-    await page.goto('/settings/subscription', { waitUntil: 'networkidle' });
-    await expect(page.getByRole('heading', { name: /OpsFinance current plan/i })).toBeVisible();
+    await page.goto('/settings/business', { waitUntil: 'networkidle' });
+    await expect(page.getByRole('heading', { name: /Business Profile/i })).toBeVisible();
 
     await page.goto('/dashboard', { waitUntil: 'networkidle' });
     await page.getByRole('banner').getByRole('button', { name: 'Sign out', exact: true }).click();

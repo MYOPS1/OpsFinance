@@ -5,7 +5,7 @@ import { resolveCurrentBusinessForUser } from '../../lib/auth/business';
 import { createSupabaseServerClient } from '../../lib/supabase/server';
 
 export default async function UploadPage() {
-  const supabase = createSupabaseServerClient();
+  const supabase = await createSupabaseServerClient();
   const {
     data: { user },
     error,

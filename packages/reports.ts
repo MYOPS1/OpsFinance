@@ -1,4 +1,5 @@
 import { AccountingEngine, DecimalMoney, type BusinessAccount, type JournalEntry } from './accounting';
+import type { BillingFeature, SubscriptionService } from './subscriptions';
 
 export interface GeneralLedgerRow {
   date: string;
@@ -104,21 +105,77 @@ export interface FinancialReportRepositoryLike {
 export interface FinancialReportServiceOptions {
   engine?: AccountingEngine;
   repository?: FinancialReportRepositoryLike;
+  subscriptionService?: SubscriptionService;
 }
 
 export class FinancialReportService {
   private readonly engine: AccountingEngine;
   private readonly repository?: FinancialReportRepositoryLike;
+  private readonly subscriptionService?: SubscriptionService;
 
   constructor(engineOrOptions: AccountingEngine | FinancialReportServiceOptions = new AccountingEngine({ businessId: '', accounts: [] }), options: FinancialReportServiceOptions = {}) {
     if (engineOrOptions instanceof AccountingEngine) {
       this.engine = engineOrOptions;
       this.repository = options.repository;
+      this.subscriptionService = options.subscriptionService;
       return;
     }
 
     this.engine = engineOrOptions.engine ?? new AccountingEngine({ businessId: '', accounts: [] });
     this.repository = engineOrOptions.repository ?? options.repository;
+    this.subscriptionService = engineOrOptions.subscriptionService ?? options.subscriptionService;
+  }
+
+  private requireReportActionAccess(businessId: string, action: 'view' | 'print' | 'download' | 'export', actor: string, featureOverride?: BillingFeature): void {
+    if (!this.subscriptionService) return;
+
+    const featureMap: Record<'view' | 'print' | 'download' | 'export', BillingFeature> = {
+      view: featureOverride ?? 'reports_view',
+      print: featureOverride ?? 'report_print',
+      download: featureOverride ?? 'report_download',
+      export: featureOverride ?? 'report_export',
+    };
+
+    this.subscriptionService.assertFeatureAccess(businessId, featureMap[action], actor, action === 'view' ? 'READ' : 'WRITE');
+  }
+
+  getReportAccessState(businessId: string, actor: string, action: 'view' | 'print' | 'download' | 'export' = 'view', featureOverride?: BillingFeature): boolean {
+    if (!this.subscriptionService) return true;
+
+    try {
+      this.requireReportActionAccess(businessId, action, actor, featureOverride);
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  getSubscriptionRequiredMessage(feature: BillingFeature): string {
+    return this.subscriptionService?.getFeatureAccessMessage(feature) ?? 'Standalone accounting access is enabled; billing gates are disabled for this application.';
+  }
+
+  assertReportActionAccess(businessId: string, action: 'view' | 'print' | 'download' | 'export', actor: string, featureOverride?: BillingFeature): void {
+    this.requireReportActionAccess(businessId, action, actor, featureOverride);
+  }
+
+  viewReport(businessId: string, actor: string, featureOverride?: BillingFeature): string {
+    this.requireReportActionAccess(businessId, 'view', actor, featureOverride);
+    return 'view-ready';
+  }
+
+  printReport(businessId: string, actor: string, featureOverride?: BillingFeature): string {
+    this.requireReportActionAccess(businessId, 'print', actor, featureOverride);
+    return 'print-ready';
+  }
+
+  downloadReport(businessId: string, actor: string, featureOverride?: BillingFeature): string {
+    this.requireReportActionAccess(businessId, 'download', actor, featureOverride);
+    return 'download-ready';
+  }
+
+  exportReport(businessId: string, actor: string, featureOverride?: BillingFeature): string {
+    this.requireReportActionAccess(businessId, 'export', actor, featureOverride);
+    return 'export-ready';
   }
 
   private getBusinessAccounts(businessId: string): BusinessAccount[] {

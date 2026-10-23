@@ -23,11 +23,6 @@ export default function SettingsPage() {
               Accounting Rules
             </Link>
           </li>
-          <li>
-            <Link href="/settings/subscription" style={{ textDecoration: 'none', fontWeight: 600, color: '#0969da' }}>
-              Subscription
-            </Link>
-          </li>
         </ul>
       </main>
     </AuthenticatedAppShell>

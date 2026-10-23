@@ -1,5 +1,6 @@
 import { redirect } from 'next/navigation';
 
+import OpsFinanceLandingPage from './opsfinance/page';
 import { createSupabaseServerClient } from '../lib/supabase/server';
 
 export default async function Page() {
@@ -8,9 +9,9 @@ export default async function Page() {
     data: { user },
   } = await supabase.auth.getUser();
 
-  if (!user) {
-    redirect('/login');
+  if (user) {
+    redirect('/dashboard');
   }
 
-  redirect('/dashboard');
+  return <OpsFinanceLandingPage />;
 }

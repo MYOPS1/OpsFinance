@@ -37,17 +37,25 @@ export async function middleware(request: NextRequest) {
   const isMarketingPath = pathname === '/opsfinance' || pathname.startsWith('/opsfinance/');
   const isPublicPath = PUBLIC_PATHS.some((prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`));
   const isProtectedPath = PROTECTED_PATH_PREFIXES.some((prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`));
+  const isBrowserNavigationRequest =
+    request.headers.get('sec-fetch-mode') === 'navigate' ||
+    request.headers.get('accept')?.includes('text/html') ||
+    request.headers.get('upgrade-insecure-requests') !== null;
 
   const {
     data: { user },
   } = await supabase.auth.getUser();
 
   if (isRootPath) {
-    if (!user) {
-      return NextResponse.redirect(new URL('/login', request.url));
+    if (user) {
+      return NextResponse.redirect(new URL('/dashboard', request.url));
     }
 
-    return NextResponse.redirect(new URL('/dashboard', request.url));
+    if (isBrowserNavigationRequest) {
+      return response;
+    }
+
+    return NextResponse.redirect(new URL('/login', request.url));
   }
 
   if (isMarketingPath) {

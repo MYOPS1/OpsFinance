@@ -2,6 +2,8 @@
 
 import React, { useEffect, useState } from 'react';
 
+import { isPreviewAuthBypassEnabled } from '../lib/auth/navigation';
+import { PREVIEW_BUSINESS_ID, getPreviewFinancialSnapshot, getPreviewReportRepository } from '../lib/preview-data';
 import { getSupabaseBrowserClient } from '../lib/supabase/client';
 import { AccountingEngine, type BusinessAccount } from '../packages/accounting';
 import { FinancialReportService } from '../packages/reports';
@@ -18,8 +20,8 @@ const formatMoney = (value: string | number | undefined) => {
 
 export function ReportsWorkflow({ businessId, businessContextError, defaultReport = 'trial' }: ReportsWorkflowProps) {
   const [report, setReport] = useState<'ledger' | 'statement' | 'trial' | 'pnl' | 'sheet' | 'cash'>(defaultReport);
-  const [dateFrom, setDateFrom] = useState('2026-01-01');
-  const [dateTo, setDateTo] = useState('2026-12-31');
+  const [dateFrom, setDateFrom] = useState('2026-10-01');
+  const [dateTo, setDateTo] = useState('2026-10-31');
   const [selectedAccountId, setSelectedAccountId] = useState<string>('');
   const [accounts, setAccounts] = useState<BusinessAccount[]>([]);
   const [trial, setTrial] = useState<any>(null);
@@ -41,6 +43,32 @@ export function ReportsWorkflow({ businessId, businessContextError, defaultRepor
         setCash(null);
         setLedger(null);
         setStatement(null);
+        return;
+      }
+
+      const isPreviewBusiness = isPreviewAuthBypassEnabled() || businessId === PREVIEW_BUSINESS_ID;
+
+      if (isPreviewBusiness) {
+        const snapshot = getPreviewFinancialSnapshot();
+        const accountsList = snapshot.accounts as BusinessAccount[];
+        const repository = getPreviewReportRepository();
+        const service = new FinancialReportService({
+          engine: new AccountingEngine({ businessId, accounts: accountsList }),
+          repository,
+        });
+
+        setAccounts(accountsList);
+        setSelectedAccountId((accountsList[0]?.id ?? ''));
+        setTrial(service.getTrialBalance({ businessId, dateFrom, dateTo }));
+        setPnl(service.getProfitAndLoss({ businessId, dateFrom, dateTo }));
+        setSheet(service.getBalanceSheet({ businessId, dateFrom, dateTo }));
+        setCash(service.getCashFlow({ businessId, dateFrom, dateTo }));
+        setLedger(service.getGeneralLedger({ businessId, dateFrom, dateTo }));
+        if (accountsList[0]) {
+          setStatement(service.getAccountStatement({ businessId, accountId: accountsList[0].id, dateFrom, dateTo }));
+        }
+        setError(null);
+        setLoading(false);
         return;
       }
 
@@ -127,6 +155,18 @@ export function ReportsWorkflow({ businessId, businessContextError, defaultRepor
 
   useEffect(() => {
     if (!businessId || !selectedAccountId) return;
+
+    const isPreviewBusiness = isPreviewAuthBypassEnabled() || businessId === PREVIEW_BUSINESS_ID;
+    if (isPreviewBusiness) {
+      const snapshot = getPreviewFinancialSnapshot();
+      const service = new FinancialReportService({
+        engine: new AccountingEngine({ businessId, accounts: snapshot.accounts as BusinessAccount[] }),
+        repository: getPreviewReportRepository(),
+      });
+      setStatement(service.getAccountStatement({ businessId, accountId: selectedAccountId, dateFrom, dateTo }));
+      return;
+    }
+
     const client = getSupabaseBrowserClient();
     if (!client) return;
 

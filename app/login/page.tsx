@@ -2,9 +2,9 @@
 
 import Image from 'next/image';
 import Link from 'next/link';
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 
-import { navigateToMyOpsHome } from '../../lib/auth/navigation';
+import { isPreviewAuthBypassEnabled, navigateToDashboard, navigateToMyOpsHome } from '../../lib/auth/navigation';
 import { normalizeAuthError } from '../../lib/auth/session';
 import { getSupabaseBrowserClient } from '../../lib/supabase/client';
 
@@ -12,6 +12,12 @@ export default function LoginPage() {
   const [status, setStatus] = useState('');
   const [error, setError] = useState('');
   const [pending, setPending] = useState(false);
+
+  useEffect(() => {
+    if (isPreviewAuthBypassEnabled()) {
+      navigateToDashboard();
+    }
+  }, []);
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();

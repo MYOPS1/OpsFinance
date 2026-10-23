@@ -33,6 +33,13 @@ export function clearSupabaseSessionStorage(): void {
   }
 }
 
+export function isPreviewAuthBypassEnabled(): boolean {
+  const envValue = process.env.NEXT_PUBLIC_PREVIEW_AUTH_BYPASS ?? process.env.PREVIEW_AUTH_BYPASS ?? 'false';
+  const isPreviewEnvironment = process.env.VERCEL_ENV === 'preview';
+
+  return envValue === 'true' || (isPreviewEnvironment && process.env.NODE_ENV !== 'production');
+}
+
 export function navigateToDashboard(assign: (url: string) => void = (url) => window.location.replace(url)): void {
   assign('/dashboard');
 }

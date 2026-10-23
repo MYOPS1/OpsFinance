@@ -2,6 +2,7 @@ import { createServerClient, type CookieOptions } from '@supabase/ssr';
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 
+import { isPreviewAuthBypassEnabled } from './lib/auth/navigation';
 import { getMyOpsAccessDecision } from './lib/auth/myops';
 
 const PUBLIC_PATHS = ['/login', '/register', '/auth/callback', '/opsfinance', '/'];
@@ -9,6 +10,22 @@ const PROTECTED_PATH_PREFIXES = ['/dashboard', '/accounts', '/transactions', '/u
 
 export async function middleware(request: NextRequest) {
   let response = NextResponse.next({ request: { headers: request.headers } });
+
+  const pathname = request.nextUrl.pathname;
+  const previewBypassEnabled = isPreviewAuthBypassEnabled();
+
+  if (previewBypassEnabled) {
+    if (pathname === '/' || pathname === '/login' || pathname === '/register' || pathname === '/opsfinance') {
+      return NextResponse.redirect(new URL('/dashboard', request.url));
+    }
+
+    const isProtectedPath = PROTECTED_PATH_PREFIXES.some((prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`));
+    if (isProtectedPath) {
+      return response;
+    }
+
+    return response;
+  }
 
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL ?? process.env.SUPABASE_URL;
   const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ?? process.env.SUPABASE_ANON_KEY;
@@ -34,7 +51,6 @@ export async function middleware(request: NextRequest) {
     },
   });
 
-  const pathname = request.nextUrl.pathname;
   const isPublicPath = PUBLIC_PATHS.some((prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`));
   const isProtectedPath = PROTECTED_PATH_PREFIXES.some((prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`));
   const isBrowserNavigationRequest =

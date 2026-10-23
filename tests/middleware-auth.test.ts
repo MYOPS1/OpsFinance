@@ -39,6 +39,23 @@ describe('auth middleware session boundary', () => {
     expect(response.headers.get('location')).toBe('http://localhost/');
   });
 
+  it('forces preview-only bypass to dashboard without requiring a separate OpsFinance login', async () => {
+    vi.stubEnv('NEXT_PUBLIC_PREVIEW_AUTH_BYPASS', 'true');
+
+    const root = await middleware(new NextRequest('http://localhost/'));
+    const login = await middleware(new NextRequest('http://localhost/login'));
+    const opsfinance = await middleware(new NextRequest('http://localhost/opsfinance'));
+
+    expect(root.status).toBe(307);
+    expect(root.headers.get('location')).toBe('http://localhost/dashboard');
+    expect(login.status).toBe(307);
+    expect(login.headers.get('location')).toBe('http://localhost/dashboard');
+    expect(opsfinance.status).toBe(307);
+    expect(opsfinance.headers.get('location')).toBe('http://localhost/dashboard');
+
+    vi.unstubAllEnvs();
+  });
+
   it('allows protected routes when getUser returns a user', async () => {
     getUserMock.mockResolvedValue({ data: { user: { id: 'test-user' } } });
 

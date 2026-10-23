@@ -14,6 +14,8 @@ vi.mock('../lib/supabase/client', () => ({
 }));
 
 vi.mock('../lib/auth/navigation', () => ({
+  isPreviewAuthBypassEnabled: () => false,
+  navigateToDashboard: vi.fn(),
   navigateToMyOpsHome: navigateToMyOpsHomeMock,
 }));
 

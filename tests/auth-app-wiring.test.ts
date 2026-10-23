@@ -7,6 +7,7 @@ import {
   shouldRedirectToLogin,
 } from '../lib/auth/session';
 import { getMyOpsAccessDecision, validateMyOpsSession } from '../lib/auth/myops';
+import { isPreviewAuthBypassEnabled } from '../lib/auth/navigation';
 
 describe('auth app wiring', () => {
   it('requires browser auth configuration before creating a client', () => {
@@ -30,6 +31,18 @@ describe('auth app wiring', () => {
     expect(getMyOpsAccessDecision({ pathname: '/opsfinance', user: { id: 'user-123' } })).toMatchObject({ allowed: true, redirectTo: '/dashboard' });
     expect(getMyOpsAccessDecision({ pathname: '/opsfinance', user: null })).toMatchObject({ allowed: false, redirectTo: '/' });
     expect(getMyOpsAccessDecision({ pathname: '/dashboard', user: null })).toMatchObject({ allowed: false, redirectTo: '/' });
+  });
+
+  it('enables the preview-only auth bypass only in preview environments', () => {
+    process.env.NEXT_PUBLIC_PREVIEW_AUTH_BYPASS = 'true';
+    expect(isPreviewAuthBypassEnabled()).toBe(true);
+
+    process.env.NEXT_PUBLIC_PREVIEW_AUTH_BYPASS = 'false';
+    process.env.VERCEL_ENV = 'production';
+    expect(isPreviewAuthBypassEnabled()).toBe(false);
+
+    delete process.env.NEXT_PUBLIC_PREVIEW_AUTH_BYPASS;
+    delete process.env.VERCEL_ENV;
   });
 
   it('rejects expired sessions and client-side bypass attempts before any protected route renders', () => {

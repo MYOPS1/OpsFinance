@@ -7,7 +7,7 @@ import {
   type JournalInput,
   type JournalLineInput,
 } from './accounting';
-import type { BillingFeature, SubscriptionService } from './subscriptions';
+import type { SubscriptionService } from './subscriptions';
 
 export type TransactionType = 'MONEY_IN' | 'MONEY_OUT' | 'TRANSFER' | 'JOURNAL';
 export type TransactionStatus = 'DRAFT' | 'REVIEW' | 'APPROVED' | 'POSTED' | 'VOIDED';
@@ -100,21 +100,13 @@ export class TransactionService {
   private readonly engine: AccountingEngine;
   private readonly transactions = new Map<string, TransactionRecord>();
   private readonly idempotency: IdempotencyStoreLike;
-  private readonly subscriptionService?: SubscriptionService;
 
   constructor(
     engine: AccountingEngine,
     options: { subscriptionService?: SubscriptionService; idempotencyStore?: IdempotencyStoreLike } = {},
   ) {
     this.engine = engine;
-    this.subscriptionService = options.subscriptionService;
     this.idempotency = options.idempotencyStore ?? new MapIdempotencyStore();
-  }
-
-  private assertEntitled(businessId: string, feature: BillingFeature, actor?: string): void {
-    if (this.subscriptionService) {
-      this.subscriptionService.assertFeatureAccess(businessId, feature, actor ?? '');
-    }
   }
 
   private getBusinessAccounts(): Map<string, any> {
@@ -180,7 +172,6 @@ export class TransactionService {
   }
 
   getTransactions(businessId: string, actor?: string): TransactionRecord[] {
-    this.assertEntitled(businessId, 'transactions', actor);
     this.engine.authorizeBusiness(businessId, this.engine.businessId);
     return [...this.transactions.values()].filter((transaction) => transaction.businessId === businessId);
   }
@@ -374,7 +365,6 @@ export class TransactionService {
   }
 
   createTransaction(input: TransactionCreateInput): TransactionRecord {
-    this.assertEntitled(input.businessId, 'transactions', input.createdBy);
     this.engine.authorizeBusiness(input.businessId, this.engine.businessId);
 
     if (input.type === 'MONEY_IN' || input.type === 'MONEY_OUT') {
@@ -506,7 +496,6 @@ export class TransactionService {
     if (!existing) {
       throw new Error('Transaction not found.');
     }
-    this.assertEntitled(existing.businessId, 'transactions', postedBy);
 
     if (idempotencyKey && this.idempotency.has(idempotencyKey)) {
       const existingId = this.idempotency.get(idempotencyKey);

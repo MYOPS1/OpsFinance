@@ -127,27 +127,18 @@ export class FinancialReportService {
   }
 
   private requireReportActionAccess(businessId: string, action: 'view' | 'print' | 'download' | 'export', actor: string, featureOverride?: BillingFeature): void {
-    if (!this.subscriptionService) return;
-
-    const featureMap: Record<'view' | 'print' | 'download' | 'export', BillingFeature> = {
-      view: featureOverride ?? 'reports_view',
-      print: featureOverride ?? 'report_print',
-      download: featureOverride ?? 'report_download',
-      export: featureOverride ?? 'report_export',
-    };
-
-    this.subscriptionService.assertFeatureAccess(businessId, featureMap[action], actor, action === 'view' ? 'READ' : 'WRITE');
+    void businessId;
+    void action;
+    void actor;
+    void featureOverride;
   }
 
   getReportAccessState(businessId: string, actor: string, action: 'view' | 'print' | 'download' | 'export' = 'view', featureOverride?: BillingFeature): boolean {
-    if (!this.subscriptionService) return true;
-
-    try {
-      this.requireReportActionAccess(businessId, action, actor, featureOverride);
-      return true;
-    } catch {
-      return false;
-    }
+    void businessId;
+    void actor;
+    void action;
+    void featureOverride;
+    return true;
   }
 
   getSubscriptionRequiredMessage(feature: BillingFeature): string {

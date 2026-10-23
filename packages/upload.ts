@@ -111,19 +111,16 @@ export class UploadConvertService {
   private readonly idempotency = new Map<string, TransactionRecord>();
   private readonly uploadAuditTrail = new Map<string, UploadAuditEvent[]>();
   private readonly accountingRules?: AccountingRuleService;
-  private readonly subscriptionService?: SubscriptionService;
   private readonly ruleUserId: string;
 
   constructor(engine: AccountingEngine, options: { accountingRules?: AccountingRuleService; ruleUserId?: string; subscriptionService?: SubscriptionService } = {}) {
     this.engine = engine;
     this.transactionService = new TransactionService(engine, { subscriptionService: options.subscriptionService });
     this.accountingRules = options.accountingRules;
-    this.subscriptionService = options.subscriptionService;
     this.ruleUserId = options.ruleUserId ?? 'system';
   }
 
   createUploadRecord(file: UploadFile, businessId: string, uploadedBy: string, sourceType: UploadType): UploadRecord {
-    this.subscriptionService?.assertFeatureAccess(businessId, 'upload_and_convert', uploadedBy);
     this.engine.authorizeBusiness(businessId, this.engine.businessId);
     const validation = this.validateFile(file);
     if (!validation.isValid) {
@@ -437,7 +434,6 @@ export class UploadConvertService {
   }
 
   processBankStatementCsv(csvText: string, fileName: string, businessId: string, uploadedBy: string): ImportBatch {
-    this.subscriptionService?.assertFeatureAccess(businessId, 'upload_and_convert', uploadedBy);
     const validation = this.validateFile({ name: fileName, size: csvText.length, type: 'text/csv', content: csvText });
     const fileHash = this.generateFileHash(csvText);
     const duplicateUploadRef = this.hashIndex.get(`${businessId}:${fileHash}`);
@@ -617,7 +613,6 @@ export class UploadConvertService {
   }
 
   extractInvoice(input: { businessId: string; sourceType: 'INVOICE' | 'BILL'; rawText: string; uploadedBy: string }): UploadCandidate {
-    this.subscriptionService?.assertFeatureAccess(input.businessId, 'upload_and_convert', input.uploadedBy);
     this.engine.authorizeBusiness(input.businessId, this.engine.businessId);
     const invoiceRef = /(?:invoice|bill)[^\n]*[:\s]+([A-Z0-9-]+)/i.exec(input.rawText)?.[1] ?? 'INV-UNKNOWN';
     const totalMatch = /(?:total|amount|grand total)[^\d]*(\d+(?:,\d{3})*(?:\.\d{2})?)/i.exec(input.rawText) ?? /RM\s*(\d+(?:,\d{3})*(?:\.\d{2})?)/i.exec(input.rawText);
@@ -658,7 +653,6 @@ export class UploadConvertService {
   }
 
   extractReceipt(input: { businessId: string; sourceType: 'RECEIPT'; rawText: string; uploadedBy: string }): UploadCandidate {
-    this.subscriptionService?.assertFeatureAccess(input.businessId, 'upload_and_convert', input.uploadedBy);
     this.engine.authorizeBusiness(input.businessId, this.engine.businessId);
     const receiptRef = /(?:receipt|rct)[^\n]*[:\s]+([A-Z0-9-]+)/i.exec(input.rawText)?.[1] ?? 'RCP-UNKNOWN';
     const totalMatch = /(?:total|amount|grand total)[^\d]*(\d+(?:,\d{3})*(?:\.\d{2})?)/i.exec(input.rawText) ?? /RM\s*(\d+(?:,\d{3})*(?:\.\d{2})?)/i.exec(input.rawText);

@@ -8,7 +8,15 @@ import { createSupabaseServerClient } from '../../lib/supabase/server';
 
 export default async function DashboardPage() {
   if (isPreviewAuthBypassEnabled()) {
-    redirect('/dashboard');
+    return (
+      <AuthenticatedAppShell businessName='Preview business' userEmail='preview@opsfinance.local'>
+        <DashboardWorkflow businessId={undefined} businessName='Preview business' />
+        <div style={{ padding: '1rem 0 0' }}>
+          <p>Preview development mode enabled.</p>
+          <p>No Supabase authentication is required in Preview. Production keeps the normal auth + RLS flow.</p>
+        </div>
+      </AuthenticatedAppShell>
+    );
   }
 
   const supabase = await createSupabaseServerClient();
@@ -18,12 +26,6 @@ export default async function DashboardPage() {
   } = await supabase.auth.getUser();
 
   if (error || !user) {
-    if (isPreviewAuthBypassEnabled()) {
-      redirect('/dashboard');
-    }
-    if (isPreviewAuthBypassEnabled()) {
-      redirect('/dashboard');
-    }
     redirect('/login');
   }
 

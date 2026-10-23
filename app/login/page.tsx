@@ -9,15 +9,21 @@ import { normalizeAuthError } from '../../lib/auth/session';
 import { getSupabaseBrowserClient } from '../../lib/supabase/client';
 
 export default function LoginPage() {
+  const previewBypass = isPreviewAuthBypassEnabled();
   const [status, setStatus] = useState('');
   const [error, setError] = useState('');
   const [pending, setPending] = useState(false);
 
   useEffect(() => {
-    if (isPreviewAuthBypassEnabled()) {
+    if (previewBypass) {
       navigateToDashboard();
     }
-  }, []);
+  }, [previewBypass]);
+
+  if (previewBypass && typeof window !== 'undefined') {
+    window.location.replace('/dashboard');
+    return null;
+  }
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();

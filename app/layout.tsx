@@ -6,6 +6,9 @@ export const metadata: Metadata = {
   title: 'OpsFinance | Accounting Made Simple',
   description:
     'OpsFinance helps Malaysian SMEs record transactions, upload bank statements and invoices, and view financial reports.',
+  icons: {
+    icon: '/favicon.svg',
+  },
   alternates: {
     canonical: '/opsfinance',
   },

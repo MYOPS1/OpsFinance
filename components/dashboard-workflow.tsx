@@ -142,21 +142,26 @@ export function DashboardWorkflow({ businessId, businessName }: DashboardWorkflo
 
   if (!businessId) {
     return (
-      <main style={{ minHeight: '100vh', padding: '2rem 1rem', background: '#f8fafc', fontFamily: 'Arial, sans-serif', color: '#0f172a' }}>
-        <div style={{ maxWidth: 960, margin: '0 auto', background: '#fff', border: '1px solid #e2e8f0', borderRadius: 18, padding: '1.5rem' }}>
-          <h1 style={{ marginTop: 0 }}>OpsFinance Dashboard</h1>
-          <p style={{ margin: '0.5rem 0 1rem' }}>No active business is available for this user yet.</p>
-          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '1rem', marginTop: '1rem' }}>
+      <main className="opsfinance-dashboard">
+        <div className="opsfinance-panel" style={{ maxWidth: 960, margin: '0 auto' }}>
+          <header className="opsfinance-dashboard-header">
+            <div>
+              <p className="opsfinance-section-kicker">OpsFinance</p>
+              <h1>OpsFinance Dashboard</h1>
+            </div>
+          </header>
+          <p style={{ margin: '0.5rem 0 1rem', color: 'var(--muted)' }}>No active business is available for this user yet.</p>
+          <div className="opsfinance-kpi-grid" style={{ marginTop: '1rem' }}>
             {['Total Cash', 'Sales / Revenue', 'Expenses', 'Net Profit'].map((label) => (
-              <div key={label} style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 12, padding: '0.9rem' }}>
-                <div style={{ color: '#475569', fontSize: 13 }}>{label}</div>
-                <div style={{ fontSize: '1.5rem', fontWeight: 800 }}>{formatMoney('0')}</div>
+              <div key={label} className="opsfinance-stat-card">
+                <div className="label">{label}</div>
+                <div className="value">{formatMoney('0')}</div>
               </div>
             ))}
           </div>
           <div style={{ marginTop: '1rem' }}>
-            <h2 style={{ marginBottom: '0.5rem' }}>Financial Account Balances</h2>
-            <p style={{ margin: 0, color: '#475569' }}>No account balances available.</p>
+            <h2 className="opsfinance-panel-header">Financial Account Balances</h2>
+            <p style={{ margin: 0, color: 'var(--muted)' }}>No account balances available.</p>
           </div>
         </div>
       </main>
@@ -165,8 +170,8 @@ export function DashboardWorkflow({ businessId, businessName }: DashboardWorkflo
 
   if (error) {
     return (
-      <main style={{ minHeight: '100vh', padding: '2rem 1rem', background: '#f8fafc', fontFamily: 'Arial, sans-serif', color: '#0f172a' }}>
-        <div role="alert" style={{ maxWidth: 960, margin: '0 auto', background: '#fff1f2', border: '1px solid #fecdd3', borderRadius: 18, padding: '1.5rem' }}>
+      <main className="opsfinance-dashboard">
+        <div role="alert" className="opsfinance-panel" style={{ maxWidth: 960, margin: '0 auto', background: '#fff1f2', borderColor: '#fecdd3' }}>
           <h1 style={{ marginTop: 0 }}>Dashboard error</h1>
           <p style={{ marginBottom: 0 }}>{error}</p>
         </div>
@@ -175,68 +180,62 @@ export function DashboardWorkflow({ businessId, businessName }: DashboardWorkflo
   }
 
   return (
-    <main style={{ minHeight: '100vh', background: '#f8fafc', color: '#0f172a', fontFamily: 'Arial, sans-serif', padding: '1.5rem 1rem 2rem' }}>
-      <div style={{ maxWidth: 1280, margin: '0 auto', display: 'grid', gap: '1.25rem' }}>
-        <header style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '1rem', flexWrap: 'wrap' }}>
-          <div>
-            <p style={{ margin: 0, color: '#475569', letterSpacing: '0.08em', fontSize: 12, fontWeight: 700, textTransform: 'uppercase' }}>OpsFinance</p>
-            <h1 style={{ margin: '0.35rem 0 0', fontSize: 'clamp(2rem, 4vw, 3rem)' }}>OpsFinance Dashboard</h1>
-          </div>
-          <div style={{ background: '#ecfeff', border: '1px solid #a5f3fc', borderRadius: 999, padding: '0.6rem 1rem', fontWeight: 700, color: '#0f172a' }}>
-            {businessName ?? 'Active business'}
-          </div>
-        </header>
+    <main className="opsfinance-dashboard">
+      <header className="opsfinance-dashboard-header">
+        <div>
+          <p className="opsfinance-section-kicker">OpsFinance</p>
+          <h1>OpsFinance Dashboard</h1>
+        </div>
+        <div className="opsfinance-business-pill">{businessName ?? 'Active business'}</div>
+      </header>
 
-        {loading ? (
-          <div style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: 18, padding: '1.25rem' }}>Loading real DB-backed dashboard data…</div>
-        ) : null}
+      {loading ? <div className="opsfinance-panel">Loading real DB-backed dashboard data…</div> : null}
 
-        <section style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '1rem' }}>
-          {summary.map((card) => (
-            <div key={card.label} style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: 18, padding: '1rem', boxShadow: '0 10px 20px rgba(15, 23, 42, 0.04)' }}>
-              <div style={{ color: '#475569', marginBottom: '0.4rem', fontSize: 13 }}>{card.label}</div>
-              <div style={{ fontSize: '1.8rem', fontWeight: 800 }}>{formatMoney(card.value)}</div>
+      <section className="opsfinance-kpi-grid">
+        {summary.map((card) => (
+          <div key={card.label} className="opsfinance-stat-card">
+            <div className="label">{card.label}</div>
+            <div className="value">{formatMoney(card.value)}</div>
+          </div>
+        ))}
+      </section>
+
+      <section style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '1rem' }}>
+        <div className="opsfinance-panel">
+          <h2 className="opsfinance-panel-header">Financial Account Balances</h2>
+          {balances.length === 0 ? <div style={{ color: 'var(--muted)' }}>No account balances available.</div> : (
+            <div className="opsfinance-balance-list">
+              {balances.map((account) => (
+                <div key={account.id} className="opsfinance-balance-item">
+                  <div>
+                    <strong>{account.name}</strong>
+                    <span>{account.type}</span>
+                  </div>
+                  <div style={{ fontWeight: 700, color: 'var(--text)' }}>{formatMoney(account.balance)}</div>
+                </div>
+              ))}
             </div>
-          ))}
-        </section>
+          )}
+        </div>
 
-        <section style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '1rem' }}>
-          <div style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: 18, padding: '1rem' }}>
-            <h2 style={{ marginTop: 0, marginBottom: '0.8rem' }}>Financial Account Balances</h2>
-            {balances.length === 0 ? <div style={{ color: '#475569' }}>No account balances available.</div> : (
-              <div style={{ display: 'grid', gap: '0.6rem' }}>
-                {balances.map((account) => (
-                  <div key={account.id} style={{ display: 'grid', gridTemplateColumns: 'minmax(0, 1.4fr) minmax(0, 1fr)', gap: '0.5rem', alignItems: 'center', borderBottom: '1px solid #f1f5f9', paddingBottom: '0.5rem' }}>
-                    <div>
-                      <div style={{ fontWeight: 700 }}>{account.name}</div>
-                      <div style={{ color: '#475569', fontSize: 12 }}>{account.type}</div>
-                    </div>
-                    <div style={{ color: '#0f172a', fontWeight: 700 }}>{formatMoney(account.balance)}</div>
+        <div className="opsfinance-panel">
+          <h2 className="opsfinance-panel-header">Recent Posted Transactions</h2>
+          {recentTransactions.length === 0 ? <div style={{ color: 'var(--muted)' }}>No posted activity yet.</div> : (
+            <div className="opsfinance-transaction-list">
+              {recentTransactions.map((transaction) => (
+                <div key={transaction.id} className="opsfinance-txn-item">
+                  <div className="opsfinance-txn-item-top">
+                    <strong>{transaction.description}</strong>
+                    <span className="opsfinance-status">{transaction.status}</span>
                   </div>
-                ))}
-              </div>
-            )}
-          </div>
-
-          <div style={{ background: '#fff', border: '1px solid #e2e8f0', borderRadius: 18, padding: '1rem' }}>
-            <h2 style={{ marginTop: 0, marginBottom: '0.8rem' }}>Recent Posted Transactions</h2>
-            {recentTransactions.length === 0 ? <div style={{ color: '#475569' }}>No posted activity yet.</div> : (
-              <div style={{ display: 'grid', gap: '0.7rem' }}>
-                {recentTransactions.map((transaction) => (
-                  <div key={transaction.id} style={{ border: '1px solid #e2e8f0', borderRadius: 12, padding: '0.7rem' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', gap: '0.5rem', alignItems: 'center' }}>
-                      <strong>{transaction.description}</strong>
-                      <span style={{ color: '#475569', fontSize: 12 }}>{transaction.status}</span>
-                    </div>
-                    <div style={{ color: '#475569', marginTop: '0.2rem' }}>{transaction.referenceNo ?? transaction.date}</div>
-                    <div style={{ fontWeight: 700, marginTop: '0.2rem' }}>{formatMoney(transaction.amount)}</div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        </section>
-      </div>
+                  <div className="meta">{transaction.referenceNo ?? transaction.date}</div>
+                  <div style={{ fontWeight: 700, marginTop: '0.2rem', color: 'var(--text)' }}>{formatMoney(transaction.amount)}</div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </section>
     </main>
   );
 }

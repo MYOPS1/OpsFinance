@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" role="img" aria-label="MYOPS logo">
+  <defs>
+    <linearGradient id="myopsBrandGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#EC167A" />
+      <stop offset="45%" stop-color="#F0187A" />
+      <stop offset="78%" stop-color="#FF8A00" />
+      <stop offset="100%" stop-color="#8B3DFF" />
+    </linearGradient>
+  </defs>
+  <path d="M25 92L60 22L95 92H82L60 52L38 92H25Z" fill="url(#myopsBrandGradient)" opacity="0.96" />
+  <path d="M18 96L60 15L102 96H86L60 46L34 96H18Z" fill="none" stroke="#071B49" stroke-width="6" stroke-linejoin="round" opacity="0.9" />
+  <path d="M31 84V35H45L60 58L75 35H89V84H75V54L60 79L45 54V84H31Z" fill="#071B49" />
+</svg>

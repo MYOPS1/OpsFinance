@@ -51,6 +51,10 @@ test.describe(E2E_ENVIRONMENT, () => {
     await authenticateWithUat(page);
 
     await page.goto('/transactions', { waitUntil: 'networkidle' });
+    const mobileToggle = page.locator('.opsfinance-mobile-toggle');
+    if (await mobileToggle.isVisible().catch(() => false)) {
+      await mobileToggle.click();
+    }
     await expect(page.getByRole('navigation', { name: 'OpsFinance navigation' }).getByRole('link', { name: 'All Transactions' })).toBeVisible();
     await expect(page.getByRole('button', { name: 'Money In', exact: true })).toBeVisible();
     await expect(page.getByRole('button', { name: 'Money Out', exact: true })).toBeVisible();

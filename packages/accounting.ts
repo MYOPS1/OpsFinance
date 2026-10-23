@@ -135,16 +135,22 @@ export class DecimalMoney {
   }
 
   static parseToCents(value: string): bigint {
-    const trimmed = String(value).trim();
-    if (!trimmed || trimmed === '.') {
+    const trimmed = String(value ?? '').trim();
+    if (!trimmed || trimmed === '.' || trimmed === '-.' || trimmed === '+.') {
       return 0n;
     }
 
-    const negative = trimmed.startsWith('-');
-    const signless = negative ? trimmed.slice(1) : trimmed;
-    const [wholeRaw, fractionRaw = ''] = signless.split('.');
-    const whole = wholeRaw.replace(/[^0-9]/g, '') || '0';
-    const fraction = fractionRaw.replace(/[^0-9]/g, '').padEnd(2, '0').slice(0, 2);
+    const normalized = trimmed.replace(/[$\s]/g, '').replace(/,/g, '');
+    const negative = normalized.startsWith('-');
+    const signless = normalized.startsWith('+') || normalized.startsWith('-') ? normalized.slice(1) : normalized;
+
+    if (!/^(?:\d+(?:\.\d*)?|\.\d+)$/.test(signless)) {
+      throw new Error(`Invalid monetary value: ${value}`);
+    }
+
+    const [wholeRaw = '0', fractionRaw = ''] = signless.split('.');
+    const whole = wholeRaw || '0';
+    const fraction = fractionRaw.padEnd(2, '0').slice(0, 2);
     const cents = BigInt(whole) * 100n + BigInt(fraction);
     return negative ? -cents : cents;
   }

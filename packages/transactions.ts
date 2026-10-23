@@ -1,5 +1,6 @@
 import {
   AccountingEngine,
+  DecimalMoney,
   createMoneyInJournal,
   createMoneyOutJournal,
   createTransferJournal,
@@ -230,7 +231,18 @@ export class TransactionService {
     };
 
     const errors: string[] = [];
-    const amountValue = Number(transaction.amount ?? '0.00');
+    let amountValue: DecimalMoney;
+    try {
+      amountValue = new DecimalMoney(transaction.amount ?? '0.00');
+    } catch {
+      errors.push('Transaction amount must be a valid positive number.');
+      return {
+        isValid: false,
+        errors,
+        totalDebit: '0.00',
+        totalCredit: '0.00',
+      };
+    }
 
     if (!transaction.businessId) {
       errors.push('Business is required.');
@@ -241,7 +253,7 @@ export class TransactionService {
     if (!transaction.description?.trim()) {
       errors.push('Transaction description is required.');
     }
-    if (!Number.isFinite(amountValue) || amountValue <= 0) {
+    if (!amountValue.isPositive()) {
       errors.push('Transaction amount must be a positive number.');
     }
 
@@ -316,11 +328,33 @@ export class TransactionService {
       if (lines.some((line) => !line.accountId)) {
         errors.push('Journal line account is required.');
       }
-      if (lines.some((line) => Number(line.debit ?? '0') <= 0 && Number(line.credit ?? '0') <= 0)) {
-        errors.push('Each journal line must have a positive debit or credit amount.');
-      }
-      if (lines.some((line) => Number(line.debit ?? '0') > 0 && Number(line.credit ?? '0') > 0)) {
-        errors.push('Journal line cannot contain both debit and credit values.');
+      for (const line of lines) {
+        const debit = (() => {
+          try {
+            return new DecimalMoney(line.debit ?? '0.00');
+          } catch {
+            return null;
+          }
+        })();
+        const credit = (() => {
+          try {
+            return new DecimalMoney(line.credit ?? '0.00');
+          } catch {
+            return null;
+          }
+        })();
+
+        if (!debit || !credit) {
+          errors.push('Journal line amounts must use valid decimals.');
+          continue;
+        }
+
+        if (debit.isPositive() && credit.isPositive()) {
+          errors.push('Journal line cannot contain both debit and credit values.');
+        }
+        if (!debit.isPositive() && !credit.isPositive()) {
+          errors.push('Each journal line must have a positive debit or credit amount.');
+        }
       }
     }
 
@@ -550,7 +584,7 @@ export class TransactionService {
       if (!input.financialAccountId || !input.accountId) {
         throw new Error('Money In requires a financial account and revenue account.');
       }
-      if (Number(amount) <= 0) {
+      if (new DecimalMoney(amount).compare(DecimalMoney.zero()) <= 0) {
         throw new Error('Money In amount must be greater than zero.');
       }
       return createMoneyInJournal({
@@ -565,7 +599,7 @@ export class TransactionService {
       if (!input.financialAccountId || !input.accountId) {
         throw new Error('Money Out requires a financial account and expense account.');
       }
-      if (Number(amount) <= 0) {
+      if (new DecimalMoney(amount).compare(DecimalMoney.zero()) <= 0) {
         throw new Error('Money Out amount must be greater than zero.');
       }
       return createMoneyOutJournal({
@@ -583,7 +617,7 @@ export class TransactionService {
       if (input.fromFinancialAccountId === input.toFinancialAccountId) {
         throw new Error('Source and destination accounts cannot be the same.');
       }
-      if (Number(amount) <= 0) {
+      if (new DecimalMoney(amount).compare(DecimalMoney.zero()) <= 0) {
         throw new Error('Transfer amount must be greater than zero.');
       }
       return createTransferJournal({

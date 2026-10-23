@@ -822,8 +822,8 @@ export class ReconciliationService {
       if (bookTx.businessId !== bankTx.businessId) return false;
       if (bookTx.financialAccountId !== bankTx.financialAccountId) return false;
       if (bookTx.status !== 'POSTED') return false;
-      const amountDelta = Math.abs(Number(bookTx.amount) - Number(bankTx.amount));
-      if (amountDelta > 0.01) return false;
+      const amountDelta = new DecimalMoney(bookTx.amount).subtract(new DecimalMoney(bankTx.amount)).abs();
+      if (amountDelta.compare(new DecimalMoney('0.01')) > 0) return false;
       const bankDate = new Date(bankTx.date).getTime();
       const bookDate = new Date(bookTx.date).getTime();
       if (Math.abs(bankDate - bookDate) / 86400000 > this.dateToleranceDays) return false;

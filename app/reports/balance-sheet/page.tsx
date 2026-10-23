@@ -1,14 +1,21 @@
 import { redirect } from 'next/navigation';
 
 import { isPreviewAuthBypassEnabled } from '../../../lib/auth/navigation';
+import { getPreviewBusinessContext } from '../../../lib/preview-data';
 import { AuthenticatedAppShell } from '../../../components/authenticated-shell';
 import { ReportsWorkflow } from '../../../components/reports-workflow';
 import { resolveCurrentBusinessForUser } from '../../../lib/auth/business';
 import { createSupabaseServerClient } from '../../../lib/supabase/server';
 
 export default async function ReportsBalanceSheetPage() {
+  const previewContext = getPreviewBusinessContext();
+
   if (isPreviewAuthBypassEnabled()) {
-    redirect('/dashboard');
+    return (
+      <AuthenticatedAppShell businessName={previewContext.businessName} userEmail={previewContext.userEmail}>
+        <ReportsWorkflow businessId={previewContext.businessId} businessContextError={null} defaultReport='sheet' />
+      </AuthenticatedAppShell>
+    );
   }
 
   const supabase = await createSupabaseServerClient();
@@ -16,10 +23,14 @@ export default async function ReportsBalanceSheetPage() {
 
   if (error || !user) {
     if (isPreviewAuthBypassEnabled()) {
-      redirect('/dashboard');
-    }
-    if (isPreviewAuthBypassEnabled()) {
-      redirect('/dashboard');
+      return (
+        <AuthenticatedAppShell businessName='Preview business' userEmail='preview@opsfinance.local'>
+          <div style={{ padding: '1rem' }}>
+            <p>Preview development mode enabled.</p>
+            <p>No authentication is required while this feature branch is being tested in Preview.</p>
+          </div>
+        </AuthenticatedAppShell>
+      );
     }
     redirect('/login');
   }

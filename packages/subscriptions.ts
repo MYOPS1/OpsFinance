@@ -1,3 +1,12 @@
+/**
+ * This billing service is retained for compatibility with existing platform data models,
+ * but OpsFinance's standalone accounting experience intentionally does not enforce any
+ * subscription, payment-status, or trial-expiry gate before allowing accounting access.
+ *
+ * Business membership, Supabase auth, RLS, and tenant isolation remain the only access
+ * controls that affect business data. Billing data is kept isolated and is not used as an
+ * authorization boundary for accounting functionality.
+ */
 export type PlanCode = 'STARTER';
 export type SubscriptionLifecycleStatus = 'TRIAL' | 'ACTIVE' | 'PAST_DUE' | 'GRACE_PERIOD' | 'SUSPENDED' | 'CANCELLED';
 export type PaymentStatus = 'INITIATED' | 'PENDING' | 'AUTHORIZED' | 'PAID' | 'FAILED' | 'CANCELLED' | 'REFUNDED';
@@ -151,28 +160,6 @@ const TRANSITIONS: Record<SubscriptionLifecycleStatus, SubscriptionLifecycleStat
   CANCELLED: [],
 };
 
-const TRIAL_ALLOWED_FEATURES = new Set<BillingFeature>([
-  'dashboard',
-  'transactions',
-  'accounts',
-  'upload_and_convert',
-  'reports',
-  'reports_view',
-  'account_statement_view',
-  'settings',
-  'accounting_rules',
-]);
-
-const TRIAL_RESTRICTED_FEATURES = new Set<BillingFeature>([
-  'report_print',
-  'report_download',
-  'report_export',
-  'account_statement_print',
-  'account_statement_download',
-  'account_statement_export',
-  'reconciliation',
-]);
-
 export class SubscriptionService {
   private readonly subscriptions = new Map<string, SubscriptionRecord>();
   private readonly businessSubscriptionById = new Map<string, string>();
@@ -186,6 +173,10 @@ export class SubscriptionService {
 
   constructor(config: Partial<BillingConfiguration> = {}) {
     this.config = { ...DEFAULT_BILLING_CONFIGURATION, ...config };
+  }
+
+  private isBillingEnforced(): boolean {
+    return this.config.providerConfigured === true;
   }
 
   getConfig(): BillingConfiguration {
@@ -274,6 +265,37 @@ export class SubscriptionService {
       startedAt,
       endsAt,
       status: subscription.status,
+    };
+  }
+
+  getFeatureAccessMessage(feature: BillingFeature): string {
+    const detailMap: Partial<Record<BillingFeature, string>> = {
+      report_print: 'Standalone accounting access is enabled; billing gates are disabled for this application.',
+      report_download: 'Standalone accounting access is enabled; billing gates are disabled for this application.',
+      report_export: 'Standalone accounting access is enabled; billing gates are disabled for this application.',
+      account_statement_print: 'Standalone accounting access is enabled; billing gates are disabled for this application.',
+      account_statement_download: 'Standalone accounting access is enabled; billing gates are disabled for this application.',
+      account_statement_export: 'Standalone accounting access is enabled; billing gates are disabled for this application.',
+      reconciliation: 'Standalone accounting access is enabled; billing gates are disabled for this application.',
+    };
+
+    return detailMap[feature] ?? 'Standalone accounting access is enabled; billing gates are disabled for this application.';
+  }
+
+  getEntitlementSummary(businessId: string, actor?: string): {
+    businessId: string;
+    trial: ReturnType<SubscriptionService['getTrialState']>;
+    price: string;
+    currency: string;
+    isTrialActive: boolean;
+  } {
+    const trial = this.getTrialState(businessId, actor);
+    return {
+      businessId,
+      trial,
+      price: `${STARTER_PLAN.monthlyPrice} / month / company`,
+      currency: STARTER_PLAN.currency,
+      isTrialActive: trial.isActive,
     };
   }
 
@@ -434,30 +456,26 @@ export class SubscriptionService {
   }
 
   assertFeatureAccess(businessId: string, feature: BillingFeature, actor: string, operation: AccessOperation = 'WRITE'): void {
-    const subscription = this.getBusinessSubscription(businessId, actor);
-    const definition = this.getPlanDefinition(subscription.plan);
+    if (!actor) {
+      throw new Error('Business access denied.');
+    }
 
-    this.syncSubscriptionLifecycle(subscription);
-    const isTrial = this.isTrialActiveRecord(subscription);
-    const blockedForSubscriptionState = TRIAL_RESTRICTED_FEATURES.has(feature) && subscription.status !== 'ACTIVE';
-
-    if (!definition.features.includes(feature)) {
-      this.recordDeniedAccess(businessId, actor, 'entitlement_denied', feature);
-      throw new Error('Feature access denied.');
-    }
-    if (subscription.status === 'CANCELLED' || (subscription.status === 'SUSPENDED' && operation === 'WRITE')) {
-      this.recordDeniedAccess(businessId, actor, 'entitlement_denied', feature);
-      throw new Error('Feature access denied.');
-    }
-    if ((isTrial || blockedForSubscriptionState) && TRIAL_RESTRICTED_FEATURES.has(feature)) {
-      this.recordDeniedAccess(businessId, actor, 'entitlement_denied', feature);
-      throw new Error('Feature access denied.');
-    }
-    if (isTrial && feature === 'reports' && operation === 'READ') {
-      this.setAuditEvent(subscription.id, businessId, actor, 'feature_access_checked', feature, { allowed: true, feature, operation, trial: true });
+    const subscriptionId = this.businessSubscriptionById.get(businessId);
+    if (subscriptionId) {
+      const subscription = this.getSubscription(subscriptionId);
+      this.assertBusinessMember(subscription.businessId, actor);
+      this.setAuditEvent(subscription.id, businessId, actor, 'feature_access_checked', feature, {
+        allowed: true,
+        feature,
+        operation,
+        billing_disabled: true,
+        standalone: true,
+      });
       return;
     }
-    this.setAuditEvent(subscription.id, businessId, actor, 'feature_access_checked', feature, { allowed: true, feature, operation });
+
+    this.assertBusinessMember(businessId, actor);
+    this.setAuditEvent(`standalone-${businessId}`, businessId, actor, 'feature_access_checked', feature, { allowed: true, feature, operation, standalone: true });
   }
 
   canAccess(feature: BillingFeature, context: EntitlementContext): boolean {

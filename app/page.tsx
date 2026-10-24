@@ -1,15 +1,10 @@
 import { redirect } from 'next/navigation';
 
-import { createSupabaseServerClient } from '../lib/supabase/server';
+import { isPreviewAuthBypassEnabled } from '../lib/auth/navigation';
 
-export default async function Page() {
-  const supabase = createSupabaseServerClient();
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
-
-  if (!user) {
-    redirect('/login');
+export default function Page() {
+  if (isPreviewAuthBypassEnabled()) {
+    redirect('/dashboard');
   }
 
   redirect('/dashboard');

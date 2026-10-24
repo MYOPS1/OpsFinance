@@ -32,11 +32,50 @@ describe('auth middleware session boundary', () => {
     vi.unstubAllEnvs();
   });
 
-  it('redirects protected routes without a user to login', async () => {
+  it('redirects protected routes without a user to the MyOps login portal', async () => {
     const response = await middleware(new NextRequest('http://localhost/dashboard'));
 
     expect(response.status).toBe(307);
     expect(response.headers.get('location')).toBe('http://localhost/login');
+  });
+
+  it('forces preview-only bypass to dashboard without requiring a separate OpsFinance login', async () => {
+    vi.stubEnv('NEXT_PUBLIC_PREVIEW_AUTH_BYPASS', 'true');
+    vi.stubEnv('VERCEL_ENV', 'preview');
+
+    const root = await middleware(new NextRequest('http://localhost/'));
+    const login = await middleware(new NextRequest('http://localhost/login'));
+    const opsfinance = await middleware(new NextRequest('http://localhost/opsfinance'));
+
+    expect(root.status).toBe(307);
+    expect(root.headers.get('location')).toBe('http://localhost/dashboard');
+    expect(login.status).toBe(307);
+    expect(login.headers.get('location')).toBe('http://localhost/dashboard');
+    expect(opsfinance.status).toBe(307);
+    expect(opsfinance.headers.get('location')).toBe('http://localhost/dashboard');
+
+    vi.unstubAllEnvs();
+  });
+
+  it('never bypasses Production authentication even when both preview flags are set', async () => {
+    vi.stubEnv('VERCEL_ENV', 'production');
+    vi.stubEnv('NEXT_PUBLIC_PREVIEW_AUTH_BYPASS', 'true');
+    vi.stubEnv('PREVIEW_AUTH_BYPASS', 'true');
+    const response = await middleware(new NextRequest('https://app.myops.com.my/dashboard'));
+    expect(response.headers.get('location')).toBe('https://app.myops.com.my/login');
+    expect(getUserMock).toHaveBeenCalledOnce();
+  });
+
+  it('missing configuration leads protected pages to an accessible login instead of a root loop', async () => {
+    vi.stubEnv('NEXT_PUBLIC_SUPABASE_URL', '');
+    vi.stubEnv('NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY', '');
+    vi.stubEnv('SUPABASE_URL', '');
+    vi.stubEnv('SUPABASE_ANON_KEY', '');
+    const protectedPage = await middleware(new NextRequest('https://app.myops.com.my/dashboard'));
+    expect(protectedPage.headers.get('location')).toBe('https://app.myops.com.my/login');
+    const login = await middleware(new NextRequest('https://app.myops.com.my/login'));
+    expect(login.status).toBe(200);
+    expect(createServerClientMock).not.toHaveBeenCalled();
   });
 
   it('allows protected routes when getUser returns a user', async () => {
@@ -47,26 +86,43 @@ describe('auth middleware session boundary', () => {
     expect(response.status).toBe(200);
   });
 
-  it('redirects the root route to login when no user is present', async () => {
+  it('keeps the root MyOps portal accessible without a user', async () => {
     const response = await middleware(new NextRequest('http://localhost/'));
 
-    expect(response.status).toBe(307);
-    expect(response.headers.get('location')).toBe('http://localhost/login');
+    expect(response.status).toBe(200);
+    expect(response.headers.get('location')).toBeNull();
   });
 
-  it('redirects the root route to dashboard when a user is present', async () => {
+  it('keeps the root MyOps portal accessible to an authenticated user', async () => {
     getUserMock.mockResolvedValue({ data: { user: { id: 'test-user' } } });
 
     const response = await middleware(new NextRequest('http://localhost/'));
 
-    expect(response.status).toBe(307);
-    expect(response.headers.get('location')).toBe('http://localhost/dashboard');
+    expect(response.status).toBe(200);
   });
 
-  it.each(['/login', '/register'])('leaves public route %s accessible without a user', async (path) => {
-    const response = await middleware(new NextRequest(`http://localhost${path}`));
+  it('renders login for signed-out visitors and redirects signed-in visitors to dashboard', async () => {
+    const response = await middleware(new NextRequest('http://localhost/login'));
 
     expect(response.status).toBe(200);
+    expect(response.headers.get('location')).toBeNull();
+
+    getUserMock.mockResolvedValue({ data: { user: { id: 'test-user' } } });
+    const authenticatedResponse = await middleware(new NextRequest('http://localhost/login'));
+
+    expect(authenticatedResponse.status).toBe(307);
+    expect(authenticatedResponse.headers.get('location')).toBe('http://localhost/dashboard');
+  });
+
+  it('redirects the OpsFinance entrypoint to the dashboard when authenticated and to MyOps when unauthenticated', async () => {
+    const unauthenticated = await middleware(new NextRequest('http://localhost/opsfinance'));
+    expect(unauthenticated.status).toBe(307);
+    expect(unauthenticated.headers.get('location')).toBe('http://localhost/login');
+
+    getUserMock.mockResolvedValue({ data: { user: { id: 'test-user' } } });
+    const authenticated = await middleware(new NextRequest('http://localhost/opsfinance'));
+    expect(authenticated.status).toBe(307);
+    expect(authenticated.headers.get('location')).toBe('http://localhost/dashboard');
   });
 
   it('passes request cookies to Supabase and writes refreshed cookies to the response', async () => {

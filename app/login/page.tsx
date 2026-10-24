@@ -1,15 +1,29 @@
 'use client';
 
-import { useState } from 'react';
+import Image from 'next/image';
+import Link from 'next/link';
+import { useEffect, useState } from 'react';
 
-import { navigateToDashboard } from '../../lib/auth/navigation';
+import { isPreviewAuthBypassEnabled, navigateToDashboard, navigateToMyOpsHome } from '../../lib/auth/navigation';
 import { normalizeAuthError } from '../../lib/auth/session';
 import { getSupabaseBrowserClient } from '../../lib/supabase/client';
 
 export default function LoginPage() {
+  const previewBypass = isPreviewAuthBypassEnabled();
   const [status, setStatus] = useState('');
   const [error, setError] = useState('');
   const [pending, setPending] = useState(false);
+
+  useEffect(() => {
+    if (previewBypass) {
+      navigateToDashboard();
+    }
+  }, [previewBypass]);
+
+  if (previewBypass && typeof window !== 'undefined') {
+    window.location.replace('/dashboard');
+    return null;
+  }
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
@@ -43,7 +57,7 @@ export default function LoginPage() {
 
     if (data.session) {
       setStatus('Signed in successfully.');
-      navigateToDashboard();
+      navigateToMyOpsHome();
       return;
     }
 
@@ -51,23 +65,50 @@ export default function LoginPage() {
   };
 
   return (
-    <main style={{ maxWidth: 420, margin: '4rem auto', padding: '2rem', background: '#fff', borderRadius: 12 }}>
-      <h1>Login</h1>
-      <form onSubmit={handleSubmit} method="post">
-        <div style={{ display: 'grid', gap: '1rem' }}>
-          <label>
-            Email
-            <input type="email" name="email" style={{ width: '100%', marginTop: 4 }} />
-          </label>
-          <label>
-            Password
-            <input type="password" name="password" style={{ width: '100%', marginTop: 4 }} />
-          </label>
-          <button type="submit" disabled={pending}>{pending ? 'Signing in...' : 'Sign in'}</button>
+    <main className="opsfinance-login-viewport">
+      <h1 className="sr-only">Login</h1>
+      <div className="opsfinance-login-card">
+        <header className="opsfinance-login-brand" aria-label="OpsFinance logo">
+          <div className="opsfinance-login-mark">
+            <Image src="/favicon.svg" alt="OpsFinance logo" width={28} height={28} priority />
+          </div>
+        </header>
+
+        <div className="opsfinance-login-visual" aria-label="Finance dashboard illustration">
+          <Image
+            src="/opsone-reference.png"
+            alt="Professional accounting dashboard illustration"
+            className="opsfinance-login-illustration"
+            width={780}
+            height={780}
+            priority
+          />
         </div>
-      </form>
-      {status ? <p>{status}</p> : null}
-      {error ? <p style={{ color: '#b42318' }}>{error}</p> : null}
+
+        <form onSubmit={handleSubmit} method="post" className="opsfinance-login-form">
+          <div className="opsfinance-login-field">
+            <label htmlFor="email">Email</label>
+            <input id="email" type="email" name="email" autoComplete="email" />
+          </div>
+
+          <div className="opsfinance-login-field">
+            <label htmlFor="password">Password</label>
+            <input id="password" type="password" name="password" autoComplete="current-password" />
+          </div>
+
+          <button type="submit" className="opsfinance-login-button" disabled={pending}>
+            {pending ? 'Signing in...' : 'Sign in'}
+          </button>
+        </form>
+
+        {status ? <p className="opsfinance-login-message success">{status}</p> : null}
+        {error ? <p className="opsfinance-login-message error">{error}</p> : null}
+
+        <div className="opsfinance-login-links">
+          <Link href="/login?forgot=1">Forgot Password</Link>
+          <Link href="/register">Register / Create Account</Link>
+        </div>
+      </div>
     </main>
   );
 }

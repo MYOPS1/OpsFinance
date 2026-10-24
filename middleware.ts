@@ -2,11 +2,23 @@ import { createServerClient, type CookieOptions } from '@supabase/ssr';
 import { NextResponse } from 'next/server';
 import type { NextRequest } from 'next/server';
 
-const PUBLIC_PATHS = ['/login', '/register', '/auth/callback', '/opsfinance', '/'];
+import { isPreviewAuthBypassEnabled } from './lib/auth/navigation';
+
 const PROTECTED_PATH_PREFIXES = ['/dashboard', '/accounts', '/transactions', '/upload', '/reconciliation', '/reports', '/settings'];
 
 export async function middleware(request: NextRequest) {
   let response = NextResponse.next({ request: { headers: request.headers } });
+
+  const pathname = request.nextUrl.pathname;
+  const previewBypassEnabled = isPreviewAuthBypassEnabled();
+
+  if (previewBypassEnabled) {
+    if (pathname === '/' || pathname === '/login' || pathname === '/register' || pathname === '/opsfinance') {
+      return NextResponse.redirect(new URL('/dashboard', request.url));
+    }
+
+    return response;
+  }
 
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL ?? process.env.SUPABASE_URL;
   const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY ?? process.env.SUPABASE_ANON_KEY;
@@ -32,37 +44,25 @@ export async function middleware(request: NextRequest) {
     },
   });
 
-  const pathname = request.nextUrl.pathname;
-  const isRootPath = pathname === '/';
-  const isMarketingPath = pathname === '/opsfinance' || pathname.startsWith('/opsfinance/');
-  const isPublicPath = PUBLIC_PATHS.some((prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`));
   const isProtectedPath = PROTECTED_PATH_PREFIXES.some((prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`));
+  const redirectWithCookies = (path: string) => {
+    const redirected = NextResponse.redirect(new URL(path, request.url));
+    response.cookies.getAll().forEach((cookie) => redirected.cookies.set(cookie));
+    return redirected;
+  };
 
   const {
     data: { user },
   } = await supabase.auth.getUser();
 
-  if (isRootPath) {
-    if (!user) {
-      return NextResponse.redirect(new URL('/login', request.url));
-    }
-
-    return NextResponse.redirect(new URL('/dashboard', request.url));
+  if ((pathname === '/login' || pathname === '/register') && user) {
+    return redirectWithCookies('/dashboard');
   }
-
-  if (isMarketingPath) {
-    return response;
+  if (pathname === '/opsfinance') {
+    return redirectWithCookies(user ? '/dashboard' : '/login');
   }
-
   if (isProtectedPath && !user) {
-    return NextResponse.redirect(new URL('/login', request.url));
-  }
-
-  const wasSignedOut = request.nextUrl.searchParams.get('logout') === '1';
-
-  if (isPublicPath && user && pathname !== '/auth/callback' && !wasSignedOut) {
-    const redirectTarget = request.nextUrl.searchParams.get('redirect') ?? '/dashboard';
-    return NextResponse.redirect(new URL(redirectTarget, request.url));
+    return redirectWithCookies('/login');
   }
 
   return response;

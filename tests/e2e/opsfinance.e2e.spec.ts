@@ -38,8 +38,8 @@ test.describe(E2E_ENVIRONMENT, () => {
     await page.goto('/settings', { waitUntil: 'networkidle' });
     await expect(page.getByRole('heading', { name: 'Settings' })).toBeVisible();
 
-    await page.goto('/settings/subscription', { waitUntil: 'networkidle' });
-    await expect(page.getByRole('heading', { name: /OpsFinance current plan/i })).toBeVisible();
+    await page.goto('/settings/business', { waitUntil: 'networkidle' });
+    await expect(page.getByRole('heading', { name: /Business Profile/i })).toBeVisible();
 
     await page.goto('/dashboard', { waitUntil: 'networkidle' });
     await page.getByRole('banner').getByRole('button', { name: 'Sign out', exact: true }).click();
@@ -51,6 +51,10 @@ test.describe(E2E_ENVIRONMENT, () => {
     await authenticateWithUat(page);
 
     await page.goto('/transactions', { waitUntil: 'networkidle' });
+    const mobileToggle = page.locator('.opsfinance-mobile-toggle');
+    if (await mobileToggle.isVisible().catch(() => false)) {
+      await mobileToggle.click();
+    }
     await expect(page.getByRole('navigation', { name: 'OpsFinance navigation' }).getByRole('link', { name: 'All Transactions' })).toBeVisible();
     await expect(page.getByRole('button', { name: 'Money In', exact: true })).toBeVisible();
     await expect(page.getByRole('button', { name: 'Money Out', exact: true })).toBeVisible();

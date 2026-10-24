@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   AccountingEngine,
+  DecimalMoney,
   createAccountingPeriod,
   createMoneyInJournal,
   createMoneyOutJournal,
@@ -65,6 +66,33 @@ describe('Phase 2 accounting engine', () => {
 
     expect(invalid.isValid).toBe(false);
     expect(invalid.errors.join(' ')).toContain('debit');
+  });
+
+  it('rejects malformed monetary values and prevents persistence of unbalanced journals', async () => {
+    expect(() => new DecimalMoney('12.34.56')).toThrow();
+    expect(() => new DecimalMoney('abc')).toThrow();
+
+    const mockClient = {
+      from: () => {
+        throw new Error('database insert should not be reached for unbalanced journal payloads');
+      },
+    };
+
+    const repo = new (await import('../packages/supabase-persistence')).SupabaseJournalRepository(mockClient as any);
+    await expect(repo.createPosted({
+      id: 'journal-invalid',
+      businessId,
+      journalNo: 'J-0001',
+      journalDate: '2026-09-12',
+      sourceType: 'MANUAL',
+      description: 'Invalid payload',
+      status: 'DRAFT',
+      createdAt: new Date().toISOString(),
+      lines: [
+        { id: 'line-1', journalEntryId: 'journal-invalid', accountId: customerBankId, debit: '50.00', credit: '0.00', description: 'Bank' },
+        { id: 'line-2', journalEntryId: 'journal-invalid', accountId: revenueAccountId, debit: '0.00', credit: '10.00', description: 'Revenue' },
+      ],
+    })).rejects.toThrow('unbalanced');
   });
 
   it('builds a correct money-in journal', () => {

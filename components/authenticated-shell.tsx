@@ -1,9 +1,11 @@
 'use client';
 
+import Image from 'next/image';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
 import React, { useEffect, useState } from 'react';
 
+import { isPreviewAuthBypassEnabled } from '../lib/auth/navigation';
 import { getSupabaseBrowserClient } from '../lib/supabase/client';
 
 type AuthenticatedAppShellProps = {
@@ -65,7 +67,6 @@ const navGroups: NavGroup[] = [
       { href: '/settings/business', label: 'Business Profile' },
       { href: '/settings/accounting', label: 'Accounting Settings' },
       { href: '/settings/accounting-rules', label: 'Accounting Rules' },
-      { href: '/settings/subscription', label: 'Subscription' },
     ],
   },
 ];
@@ -74,12 +75,10 @@ function NavigationList({ isMobile = false, onNavigate }: { isMobile?: boolean; 
   const pathname = usePathname();
 
   return (
-    <nav aria-label="OpsFinance navigation" style={{ display: 'grid', gap: '1rem' }}>
+    <nav aria-label="OpsFinance navigation" className="opsfinance-nav">
       {navGroups.map((group) => (
-        <div key={group.title} style={{ display: 'grid', gap: '0.45rem' }}>
-          <div style={{ color: '#64748b', fontSize: 12, fontWeight: 700, letterSpacing: '0.08em', textTransform: 'uppercase', padding: '0 0.5rem' }}>
-            {group.title}
-          </div>
+        <div key={group.title} className="opsfinance-nav-group">
+          <div className="opsfinance-nav-label">{group.title}</div>
           {group.items.map((item) => {
             const isActive = pathname === item.href || (item.href !== '/dashboard' && pathname.startsWith(item.href));
             return (
@@ -87,17 +86,7 @@ function NavigationList({ isMobile = false, onNavigate }: { isMobile?: boolean; 
                 key={`${group.title}-${item.label}`}
                 href={item.href}
                 onClick={onNavigate}
-                style={{
-                  textDecoration: 'none',
-                  color: isActive ? '#0f172a' : '#334155',
-                  background: isActive ? '#e2e8f0' : 'transparent',
-                  borderRadius: 10,
-                  padding: '0.6rem 0.8rem',
-                  fontWeight: 700,
-                  display: 'block',
-                  border: isActive ? '1px solid #cbd5e1' : '1px solid transparent',
-                  ...(isMobile ? { fontSize: 14 } : { fontSize: 14 }),
-                }}
+                className={isActive ? 'opsfinance-nav-link active' : 'opsfinance-nav-link'}
               >
                 {item.label}
               </Link>
@@ -112,11 +101,11 @@ function NavigationList({ isMobile = false, onNavigate }: { isMobile?: boolean; 
 export function AuthenticatedAppShell({ children, businessName, userEmail }: AuthenticatedAppShellProps) {
   const router = useRouter();
   const pathname = usePathname();
-  const [mobileOpen, setMobileOpen] = useState(() => (typeof window !== 'undefined' ? window.innerWidth <= 900 : false));
+  const [mobileOpen, setMobileOpen] = useState(false);
 
   useEffect(() => {
-    if (typeof window !== 'undefined' && window.innerWidth <= 900) {
-      setMobileOpen(true);
+    if (typeof window !== 'undefined' && window.innerWidth > 900) {
+      setMobileOpen(false);
     }
   }, [pathname]);
 
@@ -125,114 +114,77 @@ export function AuthenticatedAppShell({ children, businessName, userEmail }: Aut
     if (supabase) {
       await supabase.auth.signOut();
     }
-    router.push('/login');
+    router.push(isPreviewAuthBypassEnabled() ? '/dashboard' : '/login');
   };
 
   return (
-    <>
-      <style>{`
-        @media (max-width: 900px) {
-          .opsfinance-sidebar { display: none !important; }
-          .opsfinance-mobile-toggle { display: inline-flex !important; }
-        }
-        @media (min-width: 901px) {
-          .opsfinance-mobile-toggle { display: none !important; }
-        }
-      `}</style>
-      <div style={{ display: 'flex', minHeight: '100vh', height: '100vh', background: '#f8fafc', color: '#0f172a', fontFamily: 'Arial, sans-serif' }}>
-        <aside
-          className="opsfinance-sidebar"
-          style={{
-            width: 280,
-            flexShrink: 0,
-            background: '#fff',
-            borderRight: '1px solid #e2e8f0',
-            padding: '1.25rem 1rem',
-            display: 'flex',
-            flexDirection: 'column',
-            gap: '1rem',
-            position: 'sticky',
-            top: 0,
-            height: '100vh',
-            overflowY: 'auto',
-          }}
-        >
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: '0.5rem' }}>
-            <div>
-              <div style={{ fontSize: 11, letterSpacing: '0.08em', fontWeight: 800, color: '#64748b', textTransform: 'uppercase' }}>OpsFinance</div>
-              <div style={{ fontSize: 18, fontWeight: 800 }}>Dashboard</div>
+    <div className="opsfinance-app-shell">
+      <aside className="opsfinance-sidebar">
+        <div className="opsfinance-sidebar-header">
+          <div className="opsfinance-sidebar-brand">
+            <div className="opsfinance-brand-badge">
+              <Image src="/favicon.svg" alt="MYOPS brand mark" width={18} height={18} />
+            </div>
+            <div className="opsfinance-brand-copy">
+              <strong>OpsFinance</strong>
+              <span>Dashboard</span>
             </div>
           </div>
-
-          <div style={{ background: '#ecfeff', border: '1px solid #a5f3fc', borderRadius: 12, padding: '0.7rem 0.8rem', fontSize: 13 }}>
-            <div style={{ color: '#0f172a', fontWeight: 700 }}>Current business</div>
-            <div style={{ color: '#0f172a', marginTop: 4 }}>{businessName ?? 'No active business'}</div>
-          </div>
-
-          <NavigationList />
-
-          {userEmail ? (
-            <div style={{ marginTop: 'auto', color: '#475569', fontSize: 12, wordBreak: 'break-word' }}>
-              {userEmail}
-            </div>
-          ) : null}
-
-          <button type="button" onClick={signOut} style={{ background: '#0f172a', color: '#fff', border: 'none', borderRadius: 10, padding: '0.7rem 0.9rem', fontWeight: 700, cursor: 'pointer' }}>
-            Sign out
-          </button>
-        </aside>
-
-        <div style={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', minHeight: '100vh', height: '100vh', overflow: 'hidden' }}>
-          <header
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'space-between',
-              gap: '1rem',
-              padding: '1rem 1.25rem',
-              background: '#fff',
-              borderBottom: '1px solid #e2e8f0',
-              position: 'sticky',
-              top: 0,
-              zIndex: 2,
-              flexShrink: 0,
-            }}
-          >
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-              <button
-                type="button"
-                className="opsfinance-mobile-toggle"
-                onClick={() => setMobileOpen(true)}
-                aria-expanded={mobileOpen}
-                aria-controls="opsfinance-mobile-nav"
-                aria-label="Toggle navigation"
-                style={{ background: '#0f172a', color: '#fff', border: 'none', borderRadius: 10, padding: '0.55rem 0.7rem', fontWeight: 700 }}
-              >
-                ☰
-              </button>
-              <div>
-                <div style={{ fontSize: 11, letterSpacing: '0.08em', color: '#64748b', fontWeight: 800, textTransform: 'uppercase' }}>OpsFinance</div>
-                <div style={{ fontWeight: 700, fontSize: 20 }}>Authenticated workspace</div>
-              </div>
-            </div>
-
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-              <div style={{ color: '#475569', fontSize: 13, fontWeight: 600 }}>{businessName ?? 'No active business'}</div>
-              <button type="button" onClick={signOut} style={{ background: '#0f172a', color: '#fff', border: 'none', borderRadius: 10, padding: '0.55rem 0.8rem', fontWeight: 700, cursor: 'pointer' }}>
-                Sign out
-              </button>
-            </div>
-          </header>
-
-          {mobileOpen ? (
-            <div id="opsfinance-mobile-nav" style={{ background: '#fff', borderBottom: '1px solid #e2e8f0', padding: '1rem' }}>
-              <NavigationList isMobile onNavigate={() => setMobileOpen(false)} />
-            </div>
-          ) : null}
-
-          <main style={{ flex: 1, padding: '1.5rem 1rem 2rem', overflowY: 'auto', overflowX: 'hidden', WebkitOverflowScrolling: 'touch', minHeight: 0 }}>{children}</main>
         </div>
+
+        <div className="opsfinance-business-card">
+          <label>Current business</label>
+          <strong>{businessName ?? 'No active business'}</strong>
+        </div>
+
+        <NavigationList />
+
+        {userEmail ? <div className="opsfinance-user-block">{userEmail}</div> : null}
+
+        <button type="button" onClick={signOut} className="opsfinance-signout">
+          Sign out
+        </button>
+      </aside>
+
+      <div className="opsfinance-main-panel">
+        <header className="opsfinance-topbar">
+          <div className="opsfinance-topbar-left">
+            <button
+              type="button"
+              className="opsfinance-mobile-toggle"
+              onClick={() => setMobileOpen((value) => !value)}
+              aria-expanded={mobileOpen}
+              aria-controls="opsfinance-mobile-nav"
+              aria-label="Toggle navigation"
+            >
+              ☰
+            </button>
+            <div className="opsfinance-topbar-copy">
+              <strong>OpsFinance</strong>
+              <span>Authenticated workspace</span>
+            </div>
+          </div>
+
+          <div className="opsfinance-topbar-meta">
+            <div className="opsfinance-business-pill">{businessName ?? 'No active business'}</div>
+            <button type="button" onClick={signOut} className="opsfinance-signout">
+              Sign out
+            </button>
+          </div>
+        </header>
+
+        {mobileOpen ? (
+          <div id="opsfinance-mobile-nav" style={{ padding: '1rem 1rem 0' }}>
+            <div className="opsfinance-business-card" style={{ marginBottom: '0.75rem' }}>
+              <label>Current business</label>
+              <strong>{businessName ?? 'No active business'}</strong>
+            </div>
+            <NavigationList isMobile onNavigate={() => setMobileOpen(false)} />
+          </div>
+        ) : null}
+
+        <main className="opsfinance-content" style={{ overflowY: 'auto', overflowX: 'hidden' }}>{children}</main>
       </div>
-    </>
+    </div>
   );
 }

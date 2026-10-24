@@ -184,16 +184,10 @@ export class ReconciliationService {
   private readonly exceptions = new Map<string, ReconciliationException>();
   private readonly idempotency = new Map<string, string>();
   private readonly dateToleranceDays = 3;
-  private readonly subscriptionService?: SubscriptionService;
 
   constructor(engine: AccountingEngine, options: { subscriptionService?: SubscriptionService } = {}) {
     this.engine = engine;
-    this.subscriptionService = options.subscriptionService;
     this.transactionService = new TransactionService(engine, { subscriptionService: options.subscriptionService });
-  }
-
-  private assertEntitled(businessId: string, actor: string, operation: 'READ' | 'WRITE' = 'WRITE'): void {
-    this.subscriptionService?.assertFeatureAccess(businessId, 'reconciliation', actor, operation);
   }
 
   createSession(input: {
@@ -204,7 +198,6 @@ export class ReconciliationService {
     status?: ReconciliationStatus;
     actor: string;
   }): ReconciliationSession {
-    this.assertEntitled(input.businessId, input.actor);
     this.engine.authorizeBusiness(input.businessId, this.engine.businessId);
     const now = new Date().toISOString();
     const session: ReconciliationSession = {
@@ -341,7 +334,6 @@ export class ReconciliationService {
 
   matchTransaction(sessionId: string, bankTransactionId: string, bookTransactionId: string, actor: string): ReconciliationMatch {
     const session = this.resolveSession(sessionId);
-    this.assertEntitled(session.businessId, actor);
     if (session.status === 'LOCKED') throw new Error('Locked reconciliations cannot be modified.');
     const bankTx = this.bankTransactions.get(bankTransactionId);
     const bookTx = this.bookTransactions.get(bookTransactionId);
@@ -379,7 +371,6 @@ export class ReconciliationService {
 
   createMatchGroup(sessionId: string, bankIds: string[], bookIds: string[], actor: string): ReconciliationMatchGroup {
     const session = this.getSession(sessionId);
-    this.assertEntitled(session.businessId, actor);
     if (session.status === 'LOCKED') throw new Error('Locked reconciliations cannot be modified.');
     const bankTxs = bankIds.map((id) => this.bankTransactions.get(id)).filter(Boolean) as BankTransaction[];
     const bookTxs = bookIds.map((id) => this.bookTransactions.get(id)).filter(Boolean) as BookTransaction[];
@@ -437,7 +428,6 @@ export class ReconciliationService {
 
   createManualMatch(sessionId: string, bankIds: string[], bookIds: string[], actor: string): ReconciliationMatch {
     const session = this.getSession(sessionId);
-    this.assertEntitled(session.businessId, actor);
     if (session.status === 'LOCKED') throw new Error('Locked reconciliations cannot be modified.');
     const bankTxs = bankIds.map((id) => this.bankTransactions.get(id)).filter(Boolean) as BankTransaction[];
     const bookTxs = bookIds.map((id) => this.bookTransactions.get(id)).filter(Boolean) as BookTransaction[];
@@ -479,7 +469,6 @@ export class ReconciliationService {
 
   createPartialMatch(sessionId: string, bankIds: string[], bookIds: string[], actor: string, difference?: string): ReconciliationMatch {
     const session = this.getSession(sessionId);
-    this.assertEntitled(session.businessId, actor);
     if (session.status === 'LOCKED') throw new Error('Locked reconciliations cannot be modified.');
     const bankTxs = bankIds.map((id) => this.bankTransactions.get(id)).filter(Boolean) as BankTransaction[];
     const bookTxs = bookIds.map((id) => this.bookTransactions.get(id)).filter(Boolean) as BookTransaction[];
@@ -627,7 +616,6 @@ export class ReconciliationService {
     source?: string;
     sessionId?: string;
   }): { transactionId: string; status: string; journalId?: string } {
-    this.assertEntitled(input.businessId, input.actor);
     this.engine.authorizeBusiness(input.businessId, this.engine.businessId);
     const amount = new DecimalMoney(input.amount).toString();
     const txType: 'MONEY_IN' | 'MONEY_OUT' = input.direction === 'CREDIT' ? 'MONEY_IN' : 'MONEY_OUT';
@@ -670,7 +658,6 @@ export class ReconciliationService {
 
   completeReconciliation(sessionId: string, actor: string): { status: ReconciliationStatus; summary: ReconciliationSummary } {
     const session = this.resolveSession(sessionId);
-    this.assertEntitled(session.businessId, actor);
     if (session.status === 'LOCKED') throw new Error('Locked reconciliation cannot be completed again.');
     const summary = this.calculateSummary(session.statementId);
     const unresolved = this.getUnmatchedBankTransactions(session.statementId).length > 0 || this.getUnmatchedBookTransactionsForSession(session).length > 0;
@@ -701,7 +688,6 @@ export class ReconciliationService {
 
   lockReconciliation(sessionId: string, actor: string): ReconciliationSession {
     const session = this.getSession(sessionId);
-    this.assertEntitled(session.businessId, actor);
     if (session.status !== 'COMPLETED') throw new Error('Only completed reconciliations can be locked.');
     const key = `lock:${sessionId}`;
     if (this.idempotency.has(key)) {
@@ -836,8 +822,8 @@ export class ReconciliationService {
       if (bookTx.businessId !== bankTx.businessId) return false;
       if (bookTx.financialAccountId !== bankTx.financialAccountId) return false;
       if (bookTx.status !== 'POSTED') return false;
-      const amountDelta = Math.abs(Number(bookTx.amount) - Number(bankTx.amount));
-      if (amountDelta > 0.01) return false;
+      const amountDelta = new DecimalMoney(bookTx.amount).subtract(new DecimalMoney(bankTx.amount)).abs();
+      if (amountDelta.compare(new DecimalMoney('0.01')) > 0) return false;
       const bankDate = new Date(bankTx.date).getTime();
       const bookDate = new Date(bookTx.date).getTime();
       if (Math.abs(bankDate - bookDate) / 86400000 > this.dateToleranceDays) return false;

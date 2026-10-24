@@ -3,9 +3,9 @@ import { createElement } from 'react';
 import * as React from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
-const { getSupabaseBrowserClientMock, navigateToDashboardMock, signInWithPasswordMock } = vi.hoisted(() => ({
+const { getSupabaseBrowserClientMock, navigateToMyOpsHomeMock, signInWithPasswordMock } = vi.hoisted(() => ({
   getSupabaseBrowserClientMock: vi.fn(),
-  navigateToDashboardMock: vi.fn(),
+  navigateToMyOpsHomeMock: vi.fn(),
   signInWithPasswordMock: vi.fn(),
 }));
 
@@ -14,7 +14,9 @@ vi.mock('../lib/supabase/client', () => ({
 }));
 
 vi.mock('../lib/auth/navigation', () => ({
-  navigateToDashboard: navigateToDashboardMock,
+  isPreviewAuthBypassEnabled: () => false,
+  navigateToDashboard: vi.fn(),
+  navigateToMyOpsHome: navigateToMyOpsHomeMock,
 }));
 
 import LoginPage from '../app/login/page';
@@ -50,7 +52,7 @@ describe('login flow', () => {
       email: 'uat@example.test',
       password: 'test-only-password',
     });
-    expect(navigateToDashboardMock).toHaveBeenCalledOnce();
+    expect(navigateToMyOpsHomeMock).toHaveBeenCalledOnce();
   });
 
   it('prevents native get navigation and calls Supabase sign-in on submit', async () => {
@@ -106,7 +108,7 @@ describe('login flow', () => {
 
     await submitLogin();
 
-    expect(navigateToDashboardMock).not.toHaveBeenCalled();
+    expect(navigateToMyOpsHomeMock).not.toHaveBeenCalled();
     expect(await screen.findByText(/email or password is incorrect/i)).toBeTruthy();
   });
 
@@ -116,7 +118,7 @@ describe('login flow', () => {
 
     await submitLogin();
 
-    expect(navigateToDashboardMock).not.toHaveBeenCalled();
+    expect(navigateToMyOpsHomeMock).not.toHaveBeenCalled();
     expect(await screen.findByText(/no active session was returned/i)).toBeTruthy();
   });
 });

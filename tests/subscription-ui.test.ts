@@ -3,23 +3,24 @@ import { createElement } from 'react';
 import { describe, expect, it } from 'vitest';
 
 import { SubscriptionSettings } from '../components/subscription-settings';
+import { SubscriptionService } from '../packages/subscriptions';
 
-describe('Phase 8 subscription ui contract', () => {
-  it('renders the Starter pricing and provider status surface', () => {
+describe('standalone accounting access', () => {
+  it('renders the compatibility notice instead of pricing and billing UI', () => {
     render(createElement(SubscriptionSettings));
 
-    expect(screen.getByText(/OpsFinance current plan/i)).toBeTruthy();
-    expect(screen.getByText(/Starter/i)).toBeTruthy();
-    expect(screen.getByText(/RM29\/month/i)).toBeTruthy();
-    expect(screen.getByText(/Payment provider: Not configured/i)).toBeTruthy();
+    expect(screen.getByText(/Standalone accounting access/i)).toBeTruthy();
+    expect(screen.queryByText(/RM29\/month/i)).toBeNull();
+    expect(screen.queryByText(/Payment provider/i)).toBeNull();
+    expect(screen.getByText(/billing data is retained only for compatibility/i)).toBeTruthy();
   });
 
-  it('renders subscription status and deferred payment messaging', () => {
-    render(createElement(SubscriptionSettings));
+  it('allows accounting access without a subscription while keeping tenant boundaries', () => {
+    const service = new SubscriptionService();
+    service.registerBusiness('business-a', 'user-a');
 
-    expect(screen.getByText(/Current status/i)).toBeTruthy();
-    expect(screen.getByRole('heading', { name: /Payment history/i })).toBeTruthy();
-    expect(screen.getByText(/No payment history yet\. Subscription payment is deferred\./i)).toBeTruthy();
-    expect(screen.getByText(/Subscription payment is not yet available\./i)).toBeTruthy();
+    expect(() => service.assertFeatureAccess('business-a', 'transactions', 'user-a')).not.toThrow();
+    expect(() => service.assertFeatureAccess('business-a', 'report_export', 'user-a')).not.toThrow();
+    expect(() => service.assertFeatureAccess('business-b', 'transactions', 'user-b')).toThrow('Business access denied.');
   });
 });

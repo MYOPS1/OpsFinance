@@ -16,7 +16,7 @@ describe('auth navigation', () => {
     const assign = vi.fn();
 
     navigateToLogin(assign);
-    expect(assign).toHaveBeenCalledWith('/?logout=1');
+    expect(assign).toHaveBeenCalledWith('/login');
 
     const home = vi.fn();
     navigateToMyOpsHome(home);

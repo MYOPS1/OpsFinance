@@ -38,6 +38,7 @@ export function isPreviewAuthBypassEnabled(): boolean {
   const vercelEnv = process.env.VERCEL_ENV ?? process.env.NEXT_PUBLIC_VERCEL_ENV ?? '';
   const isPreviewEnvironment = vercelEnv === 'preview';
 
+  if (vercelEnv === 'production') return false;
   return envValue === 'true' || isPreviewEnvironment;
 }
 
@@ -50,5 +51,5 @@ export function navigateToMyOpsHome(assign: (url: string) => void = (url) => win
 }
 
 export function navigateToLogin(assign: (url: string) => void = (url) => window.location.replace(url)): void {
-  assign('/?logout=1');
+  assign('/login');
 }
